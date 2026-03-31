@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BDR Input Metrics Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  :root {
+    --bg: #F5F4F1;
+    --card: #ffffff;
+    --border: #E4E2DC;
+    --text: #111111;
+    --text-muted: #6b7280;
+    --text-light: #9ca3af;
+    --blue: #2563eb;
+    --blue-light: #DBEAFE;
+    --green: #16a34a;
+    --green-light: #DCFCE7;
+    --amber: #d97706;
+    --amber-light: #FEF9C3;
+    --grey: #6b7280;
+    --grey-light: #F3F4F6;
+    --red: #dc2626;
+    --red-light: #fef2f2;
+    --purple: #7c3aed;
+    --purple-light: #ede9fe;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* HEADER */
+  .header {
+    background: var(--text);
+    color: #fff;
+    padding: 28px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .header-left h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .header-left p {
+    font-size: 13px;
+    color: rgba(255,255,255,0.55);
+    margin-top: 2px;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .refresh-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .refresh-btn:hover { background: rgba(255,255,255,0.18); }
+  .last-updated {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+  }
+
+  /* LOADING */
+  #loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    gap: 16px;
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; color: var(--text-muted); }
+
+  #error-state {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    gap: 12px;
+    text-align: center;
+    padding: 40px;
+  }
+  .error-icon { font-size: 36px; }
+  .error-title { font-size: 18px; font-weight: 600; }
+  .error-msg { font-size: 13px; color: var(--text-muted); max-width: 480px; line-height: 1.6; }
+
+  /* MAIN CONTENT */
+  #main-content { display: none; padding: 32px 40px; max-width: 1600px; margin: 0 auto; }
+
+  /* PERIOD BAR */
+  .period-bar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .period-bar span { display: flex; align-items: center; gap: 6px; }
+  .period-bar strong { font-family: 'JetBrains Mono', monospace; color: var(--text); font-size: 12px; }
+  .period-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; }
+
+  /* SECTION */
+  .section { margin-bottom: 40px; }
+  .section-header { margin-bottom: 16px; }
+  .section-title {
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .section-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+  /* SUMMARY CARDS */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+  .rep-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: box-shadow 0.2s;
+  }
+  .rep-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-name { font-size: 15px; font-weight: 700; }
+  .card-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--grey-light);
+    color: var(--text-muted);
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .metric-box {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .metric-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+  .metric-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .metric-value.blue { color: var(--blue); }
+  .metric-value.green { color: var(--green); }
+  .metric-value.amber { color: var(--amber); }
+  .metric-value.purple { color: var(--purple); }
+  .metric-value.red { color: var(--red); }
+
+  .metric-box.highlight-blue { background: var(--blue-light); }
+  .metric-box.highlight-green { background: var(--green-light); }
+  .metric-box.highlight-amber { background: var(--amber-light); }
+  .metric-box.highlight-purple { background: var(--purple-light); }
+
+  .meetings-banner {
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border: 1px solid #86efac;
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 4px;
+  }
+  .meetings-label { font-size: 12px; font-weight: 600; color: var(--green); }
+  .meetings-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--green);
+  }
+
+  /* DISPOSITION TABLE */
+  .table-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .scroll-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: #fafaf8; }
+  th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #fafaf8; }
+  td.mono-cell {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  td.rep-name-cell { font-weight: 600; }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pill-green { background: var(--green-light); color: var(--green); }
+  .pill-red { background: var(--red-light); color: var(--red); }
+  .pill-blue { background: var(--blue-light); color: var(--blue); }
+  .pill-amber { background: var(--amber-light); color: var(--amber); }
+  .pill-purple { background: var(--purple-light); color: var(--purple); }
+  .pill-grey { background: var(--grey-light); color: var(--grey); }
+
+  /* DAY ON DAY TABLE */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .filter-bar select, .filter-bar input {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--text);
+    outline: none;
+    cursor: pointer;
+  }
+  .filter-bar select:focus, .filter-bar input:focus { border-color: var(--blue); }
+  .filter-label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+
+  .dod-table-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    max-height: 520px;
+    overflow-y: auto;
+    overflow-x: auto;
+  }
+  .dod-table-wrap thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #fafaf8;
+  }
+
+  /* CHART SECTION */
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+  }
+  .chart-container { position: relative; height: 300px; }
+
+  /* INSIGHT BOX */
+  .insight-box {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-left: 3px solid #f59e0b;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-top: 16px;
+  }
+  .insight-box h4 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #92400e;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .insight-box ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .insight-box li {
+    font-size: 13px;
+    color: #78350f;
+    line-height: 1.5;
+    padding-left: 16px;
+    position: relative;
+  }
+  .insight-box li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: #f59e0b;
+    font-weight: 700;
+  }
+
+  /* FOOTER */
+  .footer {
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    padding: 16px 40px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 40px;
+  }
+  .footer span { display: flex; align-items: center; gap: 5px; }
+  .footer strong { color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    #main-content { padding: 20px 16px; }
+    .header { padding: 20px 16px; }
+    .footer { padding: 16px; }
+    .metrics-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* TOTAL ROW */
+  tr.total-row { background: #fafaf8; font-weight: 600; }
+  tr.total-row td { border-top: 2px solid var(--border); }
+
+  /* SORTABLE */
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { color: var(--blue); }
+  th.sort-asc::after { content: ' ↑'; color: var(--blue); }
+  th.sort-desc::after { content: ' ↓'; color: var(--blue); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>📊 BDR Input Metrics Dashboard</h1>
+    <p>Live data · JustCall via Google Sheets</p>
+  </div>
+  <div class="header-right">
+    <span class="last-updated" id="last-updated-text">Fetching data...</span>
+    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+  </div>
+</div>
+
+<div id="loading-state">
+  <div class="spinner"></div>
+  <div class="loading-text">Fetching latest data from Google Sheets...</div>
+</div>
+
+<div id="error-state">
+  <div class="error-icon">⚠️</div>
+  <div class="error-title">Could not load data</div>
+  <div class="error-msg" id="error-msg-text">There was a problem fetching data from Google Sheets. Please check the sheet is published and try refreshing.</div>
+</div>
+
+<div id="main-content">
+
+  <!-- PERIOD BAR -->
+  <div class="period-bar">
+    <span><span class="period-dot"></span> Live</span>
+    <span>Period: <strong id="footer-period">—</strong></span>
+    <span>Direction: <strong>Outbound</strong></span>
+    <span>Total Calls: <strong id="footer-total">—</strong></span>
+    <span>Reps: <strong id="footer-reps">—</strong></span>
+    <span>Source: <strong>JustCall via Google Sheets</strong></span>
+  </div>
+
+  <!-- SECTION 1: TILL DATE SUMMARY -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">📋 Till-Date Summary <span style="font-weight:400;font-size:13px;color:var(--text-muted)">(All-time consolidated)</span></div>
+      <div class="section-desc">Consolidated metrics per BDR across all data in the sheet. Connect % = Connects / Total Calls. Meaningful Convo % = Meaningful Convos / Total Connects.</div>
+    </div>
+    <div class="cards-grid" id="summary-cards"></div>
+  </div>
+
+  <!-- SECTION 1B: MEETINGS SET -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">🗓 Meetings Set <span style="font-weight:400;font-size:13px;color:var(--text-muted)">(Till date, all reps)</span></div>
+      <div class="section-desc">Total meetings booked per BDR across all data in the sheet.</div>
+    </div>
+    <div class="table-wrap">
+      <div class="scroll-wrap">
+        <table id="meetings-table"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: DISPOSITION BREAKDOWN -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">🗂️ Disposition Breakdown <span style="font-weight:400;font-size:13px;color:var(--text-muted)">(Filterable)</span></div>
+      <div class="section-desc">Each row is a BDR, each column is a disposition. Filter by rep or date range.</div>
+    </div>
+    <div class="filter-bar">
+      <span class="filter-label">Filter:</span>
+      <select id="disp-rep-filter" onchange="renderDispositionTable()">
+        <option value="">All Reps</option>
+      </select>
+      <input type="date" id="disp-date-from" onchange="renderDispositionTable()" title="From date"/>
+      <span class="filter-label">to</span>
+      <input type="date" id="disp-date-to" onchange="renderDispositionTable()" title="To date"/>
+      <button class="refresh-btn" style="background:var(--card);color:var(--text);border-color:var(--border)" onclick="clearDispFilters()">Clear</button>
+    </div>
+    <div class="table-wrap">
+      <div class="scroll-wrap">
+        <table id="disposition-table"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: CHART -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">📊 Call Outcome Breakdown</div>
+      <div class="section-desc">Visual comparison of connects vs non-connects per BDR, with meaningful conversations highlighted.</div>
+    </div>
+    <div class="filter-bar">
+      <span class="filter-label">Filter:</span>
+      <select id="chart-rep-filter" onchange="renderOutcomeChart()" style="min-width:140px">
+        <option value="">All Reps</option>
+      </select>
+      <input type="date" id="chart-date-from" onchange="renderOutcomeChart()" title="From date"/>
+      <span class="filter-label">to</span>
+      <input type="date" id="chart-date-to" onchange="renderOutcomeChart()" title="To date"/>
+      <button class="refresh-btn" style="background:var(--card);color:var(--text);border-color:var(--border)" onclick="clearChartFilters()">Clear</button>
+    </div>
+    <div class="chart-card">
+      <div class="chart-container">
+        <canvas id="outcome-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 4: DAY ON DAY -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">📅 Day-on-Day Breakdown</div>
+      <div class="section-desc">Each row shows one BDR's metrics for a specific date. Filter by rep or date range. Sortable columns.</div>
+    </div>
+    <div class="filter-bar">
+      <span class="filter-label">Filter:</span>
+      <select id="rep-filter" onchange="renderDodTable()">
+        <option value="">All Reps</option>
+      </select>
+      <input type="date" id="date-from" onchange="renderDodTable()" title="From date"/>
+      <span class="filter-label">to</span>
+      <input type="date" id="date-to" onchange="renderDodTable()" title="To date"/>
+      <button class="refresh-btn" style="background:var(--card);color:var(--text);border-color:var(--border)" onclick="clearFilters()">Clear</button>
+    </div>
+    <div class="dod-table-wrap">
+      <table id="dod-table"></table>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="footer" id="footer-bar" style="display:none">
+  <span>Source: <strong>JustCall Call Logs (Google Sheets)</strong></span>
+  <span>Period: <strong id="footer-period-2">—</strong></span>
+  <span>Direction: <strong>Outbound only</strong></span>
+  <span>Meaningful Convo threshold: <strong>≥ 90 seconds</strong></span>
+  <span>Total Calls Loaded: <strong id="footer-total-2">—</strong></span>
+  <span>Last refreshed: <strong id="footer-refreshed">—</strong></span>
+</div>
+
+<script>
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSM1TpPHBqHM1WHx2jwOtNTrPuA55fiG7MifQ6FoCz_C0KrmMkBkRAqhQfYC_bmntSEnUpAC_PmVtjM/pub?gid=0&single=true&output=csv';
+
+const NON_CONNECT_DISPOSITIONS = [
+  'abm: no answer', 'abm: left vm', 'abm: no longer with the company',
+  'abm: gatekeeper', 'abm: bad numbers'
+];
+
+const MEANINGFUL_DISPOSITIONS = [
+  'abm: send email', 'abm: referral', 'abm: not interested',
+  'abm: ni - using carta', 'abm: meeting set', 'abm: lto',
+  'abm: dnd - don\'t call back', 'abm: call back later'
+];
+
+const MEANINGFUL_DURATION = 90;
+
+let allRows = [];
+let dodSortCol = 'date';
+let dodSortDir = 'desc';
+let outcomeChart = null;
+
+function toTitleCase(str) {
+  if (!str) return str;
+  if (str === str.toUpperCase() && str.length > 2) {
+    return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  }
+  return str;
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n');
+  if (lines.length < 2) return [];
+  const rawHeaders = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  const headers = rawHeaders.map(h => h.toLowerCase());
+
+  const colIdx = name => headers.findIndex(h => h.includes(name));
+  const agentCol = colIdx('agent name');
+  const dirCol = colIdx('direction');
+  const dateCol = colIdx('date');
+  const timeCol = colIdx('time');
+  const dispCol = headers.findIndex(h => h.includes('disposition') && !h.includes('code') || h === 'disposition codes' || h.includes('disposition code'));
+  const durCol = headers.findIndex(h => h.includes('duration') && h.includes('second'));
+
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cells = parseCSVLine(line);
+    const direction = (cells[dirCol] || '').trim().toLowerCase();
+    if (direction !== 'outbound') continue;
+    const agent = toTitleCase((cells[agentCol] || '').trim());
+    if (!agent) continue;
+    const date = (cells[dateCol] || '').trim();
+    const disp = (cells[dispCol] || '').trim();
+    const dur = parseInt(cells[durCol] || '0', 10) || 0;
+    rows.push({ agent, date, disp, dur, dispLower: disp.toLowerCase() });
+  }
+  return rows;
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      inQuotes = !inQuotes;
+    } else if (c === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += c;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function isConnect(dispLower) {
+  return !NON_CONNECT_DISPOSITIONS.includes(dispLower);
+}
+
+function isMeaningful(dispLower, dur) {
+  return MEANINGFUL_DISPOSITIONS.includes(dispLower) && dur >= MEANINGFUL_DURATION;
+}
+
+function isMeetingSet(dispLower) {
+  return dispLower === 'abm: meeting set';
+}
+
+function isBadNumber(dispLower) {
+  return dispLower === 'abm: bad numbers';
+}
+
+function computeRepStats(rows) {
+  const reps = {};
+  for (const r of rows) {
+    if (!reps[r.agent]) reps[r.agent] = { totalCalls: 0, connects: 0, meaningful: 0, meetings: 0, badNumbers: 0, dispositions: {} };
+    const rep = reps[r.agent];
+    rep.totalCalls++;
+    if (isConnect(r.dispLower)) rep.connects++;
+    if (isMeaningful(r.dispLower, r.dur)) rep.meaningful++;
+    if (isMeetingSet(r.dispLower)) rep.meetings++;
+    if (isBadNumber(r.dispLower)) rep.badNumbers++;
+    rep.dispositions[r.disp] = (rep.dispositions[r.disp] || 0) + 1;
+  }
+  return reps;
+}
+
+function computeDodStats(rows) {
+  const dod = {};
+  for (const r of rows) {
+    const key = `${r.agent}__${r.date}`;
+    if (!dod[key]) dod[key] = { agent: r.agent, date: r.date, totalCalls: 0, connects: 0, meaningful: 0, meetings: 0 };
+    dod[key].totalCalls++;
+    if (isConnect(r.dispLower)) dod[key].connects++;
+    if (isMeaningful(r.dispLower, r.dur)) dod[key].meaningful++;
+    if (isMeetingSet(r.dispLower)) dod[key].meetings++;
+  }
+  return Object.values(dod);
+}
+
+function pct(num, den) {
+  if (!den) return '—';
+  return (num / den * 100).toFixed(1) + '%';
+}
+
+function renderMeetingsTable(repStats) {
+  const sorted = Object.entries(repStats).sort((a, b) => b[1].meetings - a[1].meetings);
+  const total = sorted.reduce((sum, [, s]) => sum + s.meetings, 0);
+
+  const table = document.getElementById('meetings-table');
+  let html = '<thead><tr>';
+  html += '<th>#</th><th>BDR</th><th>Meetings Set</th><th>Share of Total</th><th>Calls per Meeting</th>';
+  html += '</tr></thead><tbody>';
+
+  sorted.forEach(([rep, s], i) => {
+    const share = total ? (s.meetings / total * 100).toFixed(1) : '0.0';
+    const cpm = s.meetings ? (s.totalCalls / s.meetings).toFixed(1) : '—';
+    const barWidth = total ? Math.round(s.meetings / sorted[0][1].meetings * 100) : 0;
+    html += `<tr>
+      <td class="mono-cell" style="color:var(--text-muted);width:36px">${i + 1}</td>
+      <td class="rep-name-cell">${rep}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="mono-cell" style="font-size:18px;font-weight:700;color:var(--green);min-width:28px">${s.meetings}</span>
+          <div style="flex:1;background:var(--border);border-radius:4px;height:8px;min-width:80px">
+            <div style="width:${barWidth}%;background:var(--green);border-radius:4px;height:8px;transition:width 0.4s"></div>
+          </div>
+        </div>
+      </td>
+      <td><span class="pill pill-green">${share}%</span></td>
+      <td class="mono-cell" style="color:var(--text-muted)">${cpm}</td>
+    </tr>`;
+  });
+
+  // Total row
+  html += `<tr class="total-row">
+    <td></td>
+    <td style="font-weight:700">Total</td>
+    <td class="mono-cell" style="font-size:18px;font-weight:700;color:var(--green)">${total}</td>
+    <td></td><td></td>
+  </tr>`;
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function renderSummaryCards(repStats) {
+  const container = document.getElementById('summary-cards');
+  container.innerHTML = '';
+  const sorted = Object.entries(repStats).sort((a, b) => b[1].totalCalls - a[1].totalCalls);
+
+  for (const [rep, s] of sorted) {
+    const connectPct = s.totalCalls ? (s.connects / s.totalCalls * 100).toFixed(1) : '0.0';
+    const meaningfulPct = s.connects ? (s.meaningful / s.connects * 100).toFixed(1) : '0.0';
+    const cpNum = parseFloat(connectPct);
+    const mpNum = parseFloat(meaningfulPct);
+
+    const cpClass = cpNum >= 50 ? 'green' : cpNum >= 30 ? 'amber' : 'red';
+    const mpClass = mpNum >= 30 ? 'green' : mpNum >= 15 ? 'amber' : 'red';
+    const badPct = s.totalCalls ? (s.badNumbers / s.totalCalls * 100).toFixed(1) : '0.0';
+    const badClass = parseFloat(badPct) >= 10 ? 'red' : parseFloat(badPct) >= 5 ? 'amber' : 'green';
+
+    const card = document.createElement('div');
+    card.className = 'rep-card';
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="card-name">${rep}</div>
+        <div class="card-badge mono">${s.totalCalls} calls total</div>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-box">
+          <div class="metric-label">Total Calls</div>
+          <div class="metric-value blue mono">${s.totalCalls}</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Connects</div>
+          <div class="metric-value green mono">${s.connects}</div>
+        </div>
+        <div class="metric-box highlight-${cpClass === 'green' ? 'green' : cpClass === 'amber' ? 'amber' : ''}">
+          <div class="metric-label">Connect %</div>
+          <div class="metric-value ${cpClass} mono">${connectPct}%</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Meaningful</div>
+          <div class="metric-value purple mono">${s.meaningful}</div>
+        </div>
+        <div class="metric-box highlight-${mpClass === 'green' ? 'green' : mpClass === 'amber' ? 'amber' : ''}">
+          <div class="metric-label">MC %</div>
+          <div class="metric-value ${mpClass} mono">${meaningfulPct}%</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Non-Connect</div>
+          <div class="metric-value grey mono">${s.totalCalls - s.connects}</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Bad Numbers</div>
+          <div class="metric-value red mono">${s.badNumbers}</div>
+        </div>
+        <div class="metric-box highlight-${badClass === 'red' ? '' : badClass === 'amber' ? 'amber' : 'green'}">
+          <div class="metric-label">Bad Number %</div>
+          <div class="metric-value ${badClass} mono">${badPct}%</div>
+        </div>
+      </div>
+      <div class="meetings-banner">
+        <div class="meetings-label">🗓 Meetings Set</div>
+        <div class="meetings-count mono">${s.meetings}</div>
+      </div>
+    `;
+    container.appendChild(card);
+  }
+}
+
+function clearDispFilters() {
+  document.getElementById('disp-rep-filter').value = '';
+  document.getElementById('disp-date-from').value = '';
+  document.getElementById('disp-date-to').value = '';
+  renderDispositionTable();
+}
+
+function renderDispositionTable() {
+  const repFilter = document.getElementById('disp-rep-filter') ? document.getElementById('disp-rep-filter').value : '';
+  const dateFrom = document.getElementById('disp-date-from') ? document.getElementById('disp-date-from').value : '';
+  const dateTo = document.getElementById('disp-date-to') ? document.getElementById('disp-date-to').value : '';
+
+  // Filter rows
+  const filtered = allRows.filter(r => {
+    if (repFilter && r.agent !== repFilter) return false;
+    if (dateFrom && r.date < dateFrom) return false;
+    if (dateTo && r.date > dateTo) return false;
+    return true;
+  });
+
+  // Recompute stats from filtered rows
+  const repStats = computeRepStats(filtered);
+  const allDisps = [...new Set(filtered.map(r => r.disp).filter(Boolean))].sort();
+  const reps = Object.keys(repStats).sort((a, b) => repStats[b].totalCalls - repStats[a].totalCalls);
+
+  const table = document.getElementById('disposition-table');
+  if (!table) return;
+
+  // Headers: BDR | disp1 | disp2 | ... | Total
+  let html = '<thead><tr><th>BDR</th>';
+  for (const disp of allDisps) {
+    const isNonConnect = NON_CONNECT_DISPOSITIONS.includes(disp.toLowerCase());
+    const isMC = MEANINGFUL_DISPOSITIONS.includes(disp.toLowerCase());
+    const tag = isNonConnect ? ' <span class="pill pill-red">NC</span>' : isMC ? ' <span class="pill pill-purple">MC</span>' : '';
+    html += `<th style="white-space:nowrap">${disp}${tag}</th>`;
+  }
+  html += '<th>Total</th></tr></thead><tbody>';
+
+  // One row per rep
+  for (const rep of reps) {
+    let rowTotal = 0;
+    html += `<tr><td class="rep-name-cell">${rep}</td>`;
+    for (const disp of allDisps) {
+      const cnt = (repStats[rep].dispositions[disp] || 0);
+      rowTotal += cnt;
+      html += `<td class="mono-cell">${cnt || '—'}</td>`;
+    }
+    html += `<td class="mono-cell" style="font-weight:600">${rowTotal}</td></tr>`;
+  }
+
+  // Total row
+  html += '<tr class="total-row"><td style="font-weight:700">Total</td>';
+  let grand = 0;
+  for (const disp of allDisps) {
+    let colTotal = 0;
+    for (const rep of reps) colTotal += (repStats[rep].dispositions[disp] || 0);
+    grand += colTotal;
+    html += `<td class="mono-cell">${colTotal}</td>`;
+  }
+  html += `<td class="mono-cell">${grand}</td></tr>`;
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function clearChartFilters() {
+  document.getElementById('chart-rep-filter').value = '';
+  document.getElementById('chart-date-from').value = '';
+  document.getElementById('chart-date-to').value = '';
+  renderOutcomeChart();
+}
+
+function renderOutcomeChart() {
+  const repFilter = document.getElementById('chart-rep-filter') ? document.getElementById('chart-rep-filter').value : '';
+  const dateFrom = document.getElementById('chart-date-from') ? document.getElementById('chart-date-from').value : '';
+  const dateTo = document.getElementById('chart-date-to') ? document.getElementById('chart-date-to').value : '';
+
+  const filtered = allRows.filter(r => {
+    if (repFilter && r.agent !== repFilter) return false;
+    if (dateFrom && r.date < dateFrom) return false;
+    if (dateTo && r.date > dateTo) return false;
+    return true;
+  });
+
+  const repStats = computeRepStats(filtered);
+  const reps = Object.keys(repStats).sort((a, b) => repStats[b].totalCalls - repStats[a].totalCalls);
+  const connects = reps.map(r => repStats[r].connects - repStats[r].meaningful);
+  const meaningful = reps.map(r => repStats[r].meaningful);
+  const nonConnects = reps.map(r => repStats[r].totalCalls - repStats[r].connects);
+
+  if (outcomeChart) outcomeChart.destroy();
+  const ctx = document.getElementById('outcome-chart').getContext('2d');
+  outcomeChart = new Chart(ctx, {
+    type: 'bar',
+    plugins: [ChartDataLabels],
+    data: {
+      labels: reps,
+      datasets: [
+        {
+          label: 'Meaningful Convos',
+          data: meaningful,
+          backgroundColor: 'rgba(124,58,237,0.75)',
+          borderRadius: 0
+        },
+        {
+          label: 'Other Connects',
+          data: connects,
+          backgroundColor: 'rgba(22,163,74,0.7)',
+          borderRadius: 0
+        },
+        {
+          label: 'Non-Connects',
+          data: nonConnects,
+          backgroundColor: 'rgba(107,114,128,0.45)',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { font: { family: 'DM Sans', size: 12 }, boxWidth: 12 } },
+        datalabels: {
+          color: '#fff',
+          font: { family: 'JetBrains Mono', size: 11, weight: 'bold' },
+          formatter: v => v >= 3 ? v : '',
+          anchor: 'center',
+          align: 'center'
+        }
+      },
+      scales: {
+        x: {
+          stacked: true,
+          ticks: { font: { family: 'DM Sans', size: 12 } },
+          grid: { display: false }
+        },
+        y: {
+          stacked: true,
+          ticks: { font: { family: 'JetBrains Mono', size: 11 } },
+          grid: { color: '#f3f4f6' }
+        }
+      }
+    }
+  });
+}
+
+let dodData = [];
+
+function renderDodTable() {
+  const repFilter = document.getElementById('rep-filter').value;
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo = document.getElementById('date-to').value;
+
+  let filtered = dodData.filter(r => {
+    if (repFilter && r.agent !== repFilter) return false;
+    if (dateFrom && r.date < dateFrom) return false;
+    if (dateTo && r.date > dateTo) return false;
+    return true;
+  });
+
+  // sort
+  filtered.sort((a, b) => {
+    let va = a[dodSortCol], vb = b[dodSortCol];
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return dodSortDir === 'asc' ? -1 : 1;
+    if (va > vb) return dodSortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const cols = [
+    { key: 'date', label: 'Date' },
+    { key: 'agent', label: 'BDR' },
+    { key: 'totalCalls', label: 'Total Calls' },
+    { key: 'connects', label: 'Connects' },
+    { key: 'connectPct', label: 'Connect %' },
+    { key: 'meaningful', label: 'Meaningful' },
+    { key: 'meaningfulPct', label: 'MC %' },
+    { key: 'meetings', label: 'Meetings Set' }
+  ];
+
+  const table = document.getElementById('dod-table');
+  let html = '<thead><tr>';
+  for (const col of cols) {
+    const dir = dodSortCol === col.key ? (dodSortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
+    html += `<th class="sortable ${dir}" onclick="setDodSort('${col.key}')">${col.label}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  if (filtered.length === 0) {
+    html += `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--text-muted);padding:24px">No data for selected filters.</td></tr>`;
+  }
+
+  for (const r of filtered) {
+    const cp = r.totalCalls ? (r.connects / r.totalCalls * 100).toFixed(1) : '0.0';
+    const mp = r.connects ? (r.meaningful / r.connects * 100).toFixed(1) : '0.0';
+    const cpNum = parseFloat(cp);
+    const mpNum = parseFloat(mp);
+
+    const cpPill = cpNum >= 50 ? 'pill-green' : cpNum >= 30 ? 'pill-amber' : 'pill-red';
+    const mpPill = mpNum >= 30 ? 'pill-purple' : mpNum >= 15 ? 'pill-amber' : 'pill-grey';
+
+    html += `<tr>
+      <td class="mono-cell">${r.date}</td>
+      <td class="rep-name-cell">${r.agent}</td>
+      <td class="mono-cell">${r.totalCalls}</td>
+      <td class="mono-cell">${r.connects}</td>
+      <td><span class="pill ${cpPill}">${cp}%</span></td>
+      <td class="mono-cell">${r.meaningful}</td>
+      <td><span class="pill ${mpPill}">${mp}%</span></td>
+      <td class="mono-cell">${r.meetings > 0 ? `<span class="pill pill-green">${r.meetings}</span>` : '—'}</td>
+    </tr>`;
+  }
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function setDodSort(col) {
+  if (dodSortCol === col) dodSortDir = dodSortDir === 'asc' ? 'desc' : 'asc';
+  else { dodSortCol = col; dodSortDir = col === 'date' ? 'desc' : 'desc'; }
+  renderDodTable();
+}
+
+function clearFilters() {
+  document.getElementById('rep-filter').value = '';
+  document.getElementById('date-from').value = '';
+  document.getElementById('date-to').value = '';
+  renderDodTable();
+}
+
+
+async function loadData() {
+  document.getElementById('loading-state').style.display = 'flex';
+  document.getElementById('main-content').style.display = 'none';
+  document.getElementById('error-state').style.display = 'none';
+  document.getElementById('footer-bar').style.display = 'none';
+
+  try {
+    // Try multiple CORS proxies in sequence
+    const proxyList = [
+      async (url) => {
+        const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+        if (!r.ok) throw new Error('corsproxy HTTP ' + r.status);
+        return await r.text();
+      },
+      async (url) => {
+        const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+        if (!r.ok) throw new Error('allorigins HTTP ' + r.status);
+        return await r.text();
+      },
+      async (url) => {
+        const r = await fetch(`https://thingproxy.freeboard.io/fetch/${url}`);
+        if (!r.ok) throw new Error('thingproxy HTTP ' + r.status);
+        return await r.text();
+      },
+      async (url) => {
+        const r = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`);
+        if (!r.ok) throw new Error('codetabs HTTP ' + r.status);
+        return await r.text();
+      }
+    ];
+    let text = null;
+    let lastErr = null;
+    for (const proxy of proxyList) {
+      try {
+        const result = await Promise.race([
+          proxy(SHEET_URL),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+        ]);
+        if (result && result.length > 50) { text = result; break; }
+      } catch(e) { lastErr = e; }
+    }
+    if (!text) throw new Error('All proxies failed. Last error: ' + (lastErr ? lastErr.message : 'unknown'));
+    allRows = parseCSV(text);
+
+    if (allRows.length === 0) throw new Error('No outbound rows found. Check the sheet has data and is published correctly.');
+
+    const repStats = computeRepStats(allRows);
+    dodData = computeDodStats(allRows);
+
+    // Populate rep filters (dod + disposition + chart)
+    const repFilter = document.getElementById('rep-filter');
+    repFilter.innerHTML = '<option value="">All Reps</option>';
+    const dispRepFilter = document.getElementById('disp-rep-filter');
+    dispRepFilter.innerHTML = '<option value="">All Reps</option>';
+    const chartRepFilter = document.getElementById('chart-rep-filter');
+    chartRepFilter.innerHTML = '<option value="">All Reps</option>';
+    for (const rep of Object.keys(repStats).sort()) {
+      repFilter.innerHTML += `<option value="${rep}">${rep}</option>`;
+      dispRepFilter.innerHTML += `<option value="${rep}">${rep}</option>`;
+      chartRepFilter.innerHTML += `<option value="${rep}">${rep}</option>`;
+    }
+
+    // Date range for filters
+    const dates = allRows.map(r => r.date).filter(Boolean).sort();
+    const minDate = dates[0], maxDate = dates[dates.length - 1];
+    document.getElementById('date-from').value = minDate || '';
+    document.getElementById('date-to').value = maxDate || '';
+    if (document.getElementById('disp-date-from')) document.getElementById('disp-date-from').value = minDate || '';
+    if (document.getElementById('disp-date-to')) document.getElementById('disp-date-to').value = maxDate || '';
+    if (document.getElementById('chart-date-from')) document.getElementById('chart-date-from').value = minDate || '';
+    if (document.getElementById('chart-date-to')) document.getElementById('chart-date-to').value = maxDate || '';
+
+    // Period info
+    const periodStr = minDate === maxDate ? minDate : `${minDate} → ${maxDate}`;
+    document.getElementById('footer-period').textContent = periodStr;
+    document.getElementById('footer-period-2').textContent = periodStr;
+    document.getElementById('footer-total').textContent = allRows.length.toLocaleString();
+    document.getElementById('footer-total-2').textContent = allRows.length.toLocaleString();
+    document.getElementById('footer-reps').textContent = Object.keys(repStats).length;
+    const now = new Date();
+    const ts = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('last-updated-text').textContent = 'Updated ' + ts;
+    document.getElementById('footer-refreshed').textContent = ts;
+
+    renderSummaryCards(repStats);
+    renderMeetingsTable(repStats);
+    renderDispositionTable();
+    renderOutcomeChart();
+    renderDodTable();
+
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('main-content').style.display = 'block';
+    document.getElementById('footer-bar').style.display = 'flex';
+
+  } catch (e) {
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('error-state').style.display = 'flex';
+    document.getElementById('error-msg-text').textContent = e.message || 'Unknown error. Please check the sheet URL and try again.';
+    console.error(e);
+  }
+}
+
+Chart.register(ChartDataLabels);
+loadData();
+</script>
+</body>
+</html>
