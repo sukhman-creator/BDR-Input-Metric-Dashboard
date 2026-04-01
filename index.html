@@ -3,956 +3,697 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>📞 Discovery Call Tracker — Qapita BDR Team</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+<title>Mazdoori Metrics</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#F5F4F1;--card:#FFFFFF;--border:#E4E2DC;--text:#111111;--muted:#6B7280;
-  --row-alt:#FAFAF9;--row-hover:#EFF6FF;--today-border:#3B82F6;--om-bg:#FFF7ED;
-  --c-scheduled:#3B82F6;--c-sal:#22C55E;--c-dq:#EF4444;--c-noshow:#F59E0B;
-  --c-rescheduled:#A78BFA;--c-lto:#2DD4BF;--c-prequal:#8B5CF6;--c-missing:#F97316;
-  --c-other:#9CA3AF;
-}
-body{background:var(--bg);font-family:'DM Sans',sans-serif;color:var(--text);font-size:14px;line-height:1.5}
-.mono{font-family:'JetBrains Mono',monospace}
-a{color:inherit;text-decoration:none}
+  :root {
+    --bg: #F5F4F1; --card: #ffffff; --border: #E4E2DC;
+    --text: #111111; --text-muted: #6b7280; --text-light: #9ca3af;
+    --blue: #2563eb; --blue-light: #DBEAFE;
+    --green: #16a34a; --green-light: #DCFCE7;
+    --amber: #d97706; --amber-light: #FEF9C3;
+    --grey: #6b7280; --grey-light: #F3F4F6;
+    --red: #dc2626; --red-light: #fef2f2;
+    --purple: #7c3aed; --purple-light: #ede9fe;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
 
-/* Layout */
-.wrap{max-width:1300px;margin:0 auto;padding:24px 20px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px 28px;margin-bottom:20px}
+  .header { background: var(--text); color: #fff; padding: 28px 40px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .header-left h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .header-left p { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 3px; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .refresh-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; padding: 8px 16px; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+  .refresh-btn:hover { background: rgba(255,255,255,0.18); }
+  .last-updated { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: rgba(255,255,255,0.4); }
 
-/* Header */
-.hdr-title{font-size:26px;font-weight:700;margin-bottom:2px}
-.hdr-sub{color:var(--muted);font-size:14px;margin-bottom:14px}
-.hdr-meta{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:12px;color:var(--muted);margin-bottom:14px}
-.hdr-meta .mono{font-size:12px}
-.btn-refresh{background:#111;color:#fff;border:none;border-radius:8px;padding:5px 14px;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px}
-.btn-refresh:hover{background:#333}
-.legend-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
-.legend-item{display:flex;align-items:center;gap:5px;font-size:12px}
-.legend-dot{width:10px;height:10px;border-radius:50%}
+  #loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 16px; }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; color: var(--text-muted); }
+  #error-state { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 12px; text-align: center; padding: 40px; }
+  .error-icon { font-size: 36px; } .error-title { font-size: 18px; font-weight: 600; }
+  .error-msg { font-size: 13px; color: var(--text-muted); max-width: 480px; line-height: 1.6; }
 
-/* Section header */
-.sec-hdr{display:flex;align-items:center;gap:12px;margin-bottom:6px}
-.sec-num{width:30px;height:30px;background:#111;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;flex-shrink:0}
-.sec-title{font-size:17px;font-weight:700}
-.sec-badge{background:#F3F4F6;border:1px solid var(--border);border-radius:20px;padding:2px 10px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--muted);margin-left:4px}
-.sec-desc{color:var(--muted);font-size:13px;margin-left:42px;margin-bottom:16px}
+  #main-content { display: none; padding: 32px 40px; max-width: 1600px; margin: 0 auto; }
 
-/* Stat cards */
-.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px}
-.stat-card{border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--card);border-top-width:3px}
-.stat-label{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
-.stat-num{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;line-height:1;margin-bottom:3px}
-.stat-pct{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
-.funnel-row{background:#F9F8F6;border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted)}
-.funnel-row span{color:var(--text);font-weight:600}
+  .period-bar { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; margin-bottom: 28px; font-size: 12px; color: var(--text-muted); }
+  .period-bar span { display: flex; align-items: center; gap: 6px; }
+  .period-bar strong { font-family: 'JetBrains Mono', monospace; color: var(--text); font-size: 12px; }
+  .period-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; }
 
-/* Tables */
-.tbl-wrap{overflow-x:auto}
-table{width:100%;min-width:700px;border-collapse:collapse;font-size:13px}
-thead th{background:var(--card);padding:10px 12px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:2px solid var(--border);position:sticky;top:0;z-index:2}
-tbody tr{border-bottom:1px solid var(--border);cursor:default}
-tbody tr:nth-child(odd){background:var(--row-alt)}
-tbody tr:hover{background:var(--row-hover)}
-td{padding:9px 12px;vertical-align:top}
-td.mono{font-family:'JetBrains Mono',monospace;font-size:12px}
-.today-row{border-left:3px solid var(--today-border)!important}
-.om-row{background:var(--om-bg)!important}
-.empty-state{text-align:center;padding:30px;color:var(--muted);font-style:italic}
-.empty-warn{background:#FEF3C7;border-radius:10px;padding:14px;text-align:center;color:#92400E;font-size:13px}
+  .section { margin-bottom: 48px; }
+  .section-header { margin-bottom: 16px; }
+  .section-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .section-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
 
-/* Badges */
-.badge{display:inline-flex;align-items:center;border-radius:20px;padding:2px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;white-space:nowrap}
-.badge-scheduled{background:#EFF6FF;color:#1D4ED8}
-.badge-sal{background:#DCFCE7;color:#166534}
-.badge-dq{background:#FEE2E2;color:#991B1B}
-.badge-noshow{background:#FEF3C7;color:#92400E}
-.badge-rescheduled{background:#F3E8FF;color:#7C3AED}
-.badge-lto{background:#CCFBF1;color:#0F766E}
-.badge-prequal{background:#EDE9FE;color:#5B21B6}
-.badge-missing{background:#FFEDD5;color:#9A3412}
-.badge-other{background:#E5E7EB;color:#6B7280}
-.badge-today{background:#DBEAFE;color:#1E40AF;margin-left:4px}
-.badge-dup{background:#FEF9C3;color:#854D0E;margin-left:4px}
-.badge-dateerr{background:#FEE2E2;color:#991B1B}
-.source-pill{background:#EFF6FF;color:#1D4ED8;border-radius:20px;padding:2px 10px;font-size:11px;font-family:'JetBrains Mono',monospace;display:inline-block}
+  /* FILTER BAR */
+  .filter-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .filter-bar select, .filter-bar input { font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); outline: none; cursor: pointer; }
+  .filter-bar select:focus, .filter-bar input:focus { border-color: var(--blue); }
+  .filter-label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  .clear-btn { font-family: 'DM Sans', sans-serif; font-size: 12px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text-muted); cursor: pointer; }
+  .clear-btn:hover { border-color: var(--blue); color: var(--blue); }
 
-/* Filter bar */
-.filter-bar{background:#F9F8F6;border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.filter-bar select,.filter-bar input{border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-family:'DM Sans',sans-serif;font-size:13px;background:#fff;color:var(--text)}
-.filter-bar input[type=text]{min-width:180px}
-.filter-bar input[type=date]{font-family:'JetBrains Mono',monospace;font-size:12px}
-.btn-reset{background:#fff;border:1px solid var(--border);border-radius:7px;padding:6px 12px;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;color:var(--muted)}
-.btn-reset:hover{background:#F3F4F6}
-.filter-count{font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--muted);margin-left:auto}
+  /* MOTIVATIONAL BANNER */
+  .motiv-banner { background: linear-gradient(135deg, #1e1b4b, #312e81); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; display: flex; align-items: flex-start; gap: 16px; }
+  .motiv-icon { font-size: 28px; flex-shrink: 0; }
+  .motiv-content h3 { font-size: 11px; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+  .motiv-leaderboard { display: flex; flex-direction: column; gap: 8px; }
+  .motiv-row { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+  .motiv-rank { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; min-width: 26px; }
+  .motiv-rank.gold { color: #fbbf24; } .motiv-rank.silver { color: #d1d5db; } .motiv-rank.bronze { color: #d97706; }
+  .motiv-name { font-size: 14px; font-weight: 600; color: #fff; min-width: 130px; }
+  .motiv-stat { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #c7d2fe; font-weight: 600; min-width: 70px; }
+  .motiv-quote { font-size: 12px; color: #a5b4fc; font-style: italic; line-height: 1.5; }
 
-/* Notes expand */
-.note-short{cursor:pointer;color:var(--muted)}
-.note-short:hover{color:var(--text)}
-.note-full{display:none;color:var(--text)}
-.note-expanded .note-short{display:none}
-.note-expanded .note-full{display:inline}
+  /* CARDS */
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  .rep-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: box-shadow 0.2s; }
+  .rep-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .card-name { font-size: 15px; font-weight: 700; }
+  .card-badge { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: var(--grey-light); color: var(--text-muted); padding: 3px 8px; border-radius: 4px; }
+  .metrics-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .metric-box { background: var(--bg); border-radius: 8px; padding: 10px 12px; }
+  .metric-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 4px; }
+  .metric-value { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; line-height: 1; }
+  .metric-value.blue { color: var(--blue); } .metric-value.green { color: var(--green); }
+  .metric-value.amber { color: var(--amber); } .metric-value.purple { color: var(--purple); }
+  .metric-value.red { color: var(--red); } .metric-value.grey { color: var(--grey); }
+  .metric-box.hl-green { background: var(--green-light); } .metric-box.hl-amber { background: var(--amber-light); }
+  .metric-box.hl-purple { background: var(--purple-light); } .metric-box.hl-red { background: var(--red-light); }
 
-/* BDR table conditional */
-.cell-best{background:#DCFCE7!important}
-.cell-worst{background:#FEE2E2!important}
+  /* TABLE */
+  .table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .scroll-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: #fafaf8; }
+  th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #fafaf8; }
+  td.mono-cell { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  td.rep-name-cell { font-weight: 600; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; }
+  .pill-green { background: var(--green-light); color: var(--green); }
+  .pill-red { background: var(--red-light); color: var(--red); }
+  .pill-amber { background: var(--amber-light); color: var(--amber); }
+  .pill-purple { background: var(--purple-light); color: var(--purple); }
+  .pill-grey { background: var(--grey-light); color: var(--grey); }
+  tr.total-row { background: #fafaf8; }
+  tr.total-row td { border-top: 2px solid var(--border); font-weight: 600; }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { color: var(--blue); }
+  th.sort-asc::after { content: ' ↑'; color: var(--blue); }
+  th.sort-desc::after { content: ' ↓'; color: var(--blue); }
 
-/* Charts */
-.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
-.chart-box{height:300px;position:relative}
-.trend-scroll{max-height:340px;overflow-y:auto}
+  .dod-table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; max-height: 520px; overflow-y: auto; overflow-x: auto; }
+  .dod-table-wrap thead th { position: sticky; top: 0; z-index: 2; background: #fafaf8; }
 
-/* Loading / upload screen */
-.loading-screen{min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px}
-.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--today-border);border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loading-status{font-size:14px;color:var(--muted);font-family:'JetBrains Mono',monospace}
-.upload-zone{border:2px dashed var(--border);border-radius:14px;padding:50px 30px;text-align:center;cursor:pointer;transition:border-color .2s}
-.upload-zone:hover,.upload-zone.drag-over{border-color:var(--today-border);background:#EFF6FF}
-.upload-icon{font-size:40px;margin-bottom:12px}
-.upload-title{font-size:18px;font-weight:700;margin-bottom:6px}
-.upload-hint{color:var(--muted);font-size:13px;margin-bottom:16px}
-.btn-upload{background:#111;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer}
-.upload-note{background:#FEF3C7;border-radius:8px;padding:10px 16px;font-size:12px;color:#92400E;margin-top:16px;max-width:480px;text-align:left}
-.hidden{display:none}
-#file-input{display:none}
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 24px; }
+  .chart-container { position: relative; height: 320px; }
 
-/* Footer */
-.footer{text-align:center;color:var(--muted);font-size:12px;padding:20px 0 30px}
+  .footer { background: var(--card); border-top: 1px solid var(--border); padding: 16px 40px; display: flex; flex-wrap: wrap; gap: 20px; font-size: 12px; color: var(--text-muted); margin-top: 40px; }
+  .footer span { display: flex; align-items: center; gap: 5px; }
+  .footer strong { color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
 
-/* Responsive */
-@media(max-width:900px){
-  .cards-grid{grid-template-columns:repeat(2,1fr)}
-  .chart-row{grid-template-columns:1fr}
-  .card{padding:16px 14px}
-  .wrap{padding:12px}
-}
+  /* DISPOSITION TABLE COMPACT */
+  #disposition-table th {
+    white-space: normal;
+    word-break: break-word;
+    max-width: 90px;
+    min-width: 60px;
+    font-size: 10px;
+    padding: 8px 6px;
+    text-align: center;
+    line-height: 1.3;
+  }
+  #disposition-table td {
+    text-align: center;
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+  #disposition-table td:first-child {
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+    padding-left: 14px;
+    min-width: 120px;
+  }
+  #disposition-table th:first-child {
+    text-align: left;
+    padding-left: 14px;
+    white-space: nowrap;
+    min-width: 120px;
+  }
+  .disp-table-wrap { overflow-x: visible; }
+
+  @media (max-width: 768px) {
+    #main-content { padding: 20px 16px; } .header { padding: 20px 16px; } .footer { padding: 16px; }
+    .metrics-grid { grid-template-columns: 1fr 1fr; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap" id="app">
-  <div class="card" id="header-card">
-    <div class="hdr-title">📞 Discovery Call Tracker</div>
-    <div class="hdr-sub">Qapita BDR Team — Live Dashboard</div>
-    <div class="hdr-meta">
-      <span class="mono" id="meta-range">—</span>
-      <span class="mono" id="meta-total">—</span>
-      <span class="mono" id="meta-refresh">Last refreshed: —</span>
-      <button class="btn-refresh" onclick="location.reload()">↻ Refresh</button>
-    </div>
-    <div class="legend-row" id="legend-row">
-      <div class="legend-item"><div class="legend-dot" style="background:#3B82F6"></div>Scheduled</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#22C55E"></div>Sales Accepted</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#EF4444"></div>DQed</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#F59E0B"></div>Declined/No-show</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#A78BFA"></div>Rescheduled</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#2DD4BF"></div>LTO</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#8B5CF6"></div>Pre-Qal</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#F97316"></div>Outcome Missing</div>
-    </div>
+
+<div class="header">
+  <div class="header-left">
+    <h1>💪 Mazdoori Metrics</h1>
+    <p>Live data · JustCall via Google Sheets</p>
   </div>
-
-  <!-- Loading -->
-  <div class="card" id="loading-card">
-    <div class="loading-screen">
-      <div class="spinner"></div>
-      <div class="loading-status" id="loading-status">Connecting to Google Sheet…</div>
-    </div>
-  </div>
-
-  <!-- Upload fallback -->
-  <div class="card hidden" id="upload-card">
-    <div class="upload-zone" id="upload-zone">
-      <div class="upload-icon">📂</div>
-      <div class="upload-title">Drop your CSV here</div>
-      <div class="upload-hint">Or click to choose a file (.csv, .tsv, .txt)</div>
-      <button class="btn-upload" onclick="document.getElementById('file-input').click()">Choose CSV File</button>
-      <input type="file" id="file-input" accept=".csv,.tsv,.txt"/>
-    </div>
-    <div class="upload-note">
-      ⚠️ <strong>Why am I seeing this?</strong> Your browser blocked the Google Sheet fetch due to CORS restrictions (common when opening this file locally via <code>file://</code>). To enable live auto-updating, host this file on a web server:<br/>
-      <code>python3 -m http.server</code> · GitHub Pages · Netlify · Vercel
-    </div>
-  </div>
-
-  <!-- Dashboard (hidden until data loads) -->
-  <div id="dashboard" class="hidden">
-    <!-- Section 1 -->
-    <div class="card" id="sec1">
-      <div class="sec-hdr"><div class="sec-num">1</div><div class="sec-title">At a Glance</div></div>
-      <div class="sec-desc">Summary counts for the entire dataset.</div>
-      <div class="cards-grid" id="cards-grid"></div>
-      <div class="funnel-row mono" id="funnel-row"></div>
-    </div>
-
-    <!-- Section 2 -->
-    <div class="card" id="sec2">
-      <div class="sec-hdr">
-        <div class="sec-num">2</div>
-        <div class="sec-title" id="sec2-title">This Week's Calls</div>
-        <span class="sec-badge" id="sec2-badge">0</span>
-      </div>
-      <div class="sec-desc">Discovery calls scheduled this week. Past-date calls with no outcome are flagged.</div>
-      <div class="tbl-wrap" id="sec2-table"></div>
-    </div>
-
-    <!-- Section 3 -->
-    <div class="card" id="sec3">
-      <div class="sec-hdr">
-        <div class="sec-num">3</div>
-        <div class="sec-title" id="sec3-title">Next Week's Calls</div>
-        <span class="sec-badge" id="sec3-badge">0</span>
-      </div>
-      <div class="sec-desc">Pipeline view — calls confirmed for next week.</div>
-      <div id="sec3-table"></div>
-    </div>
-
-    <!-- Section 4 -->
-    <div class="card" id="sec4">
-      <div class="sec-hdr">
-        <div class="sec-num">4</div>
-        <div class="sec-title">All Discovery Calls — Complete Record</div>
-        <span class="sec-badge" id="sec4-badge">0</span>
-      </div>
-      <div class="sec-desc">Full list of every call booked. Use filters to narrow.</div>
-      <div class="filter-bar" id="filter-bar">
-        <select id="f-bdr" onchange="applyFilters()"><option value="">All BDRs</option></select>
-        <select id="f-status" onchange="applyFilters()"><option value="">All Statuses</option></select>
-        <input type="text" id="f-search" placeholder="Search prospect / company…" oninput="applyFilters()"/>
-        <input type="date" id="f-from" onchange="applyFilters()"/>
-        <input type="date" id="f-to" onchange="applyFilters()"/>
-        <button class="btn-reset" onclick="resetFilters()">Reset</button>
-        <span class="filter-count mono" id="filter-count"></span>
-      </div>
-      <div class="tbl-wrap" id="sec4-table"></div>
-    </div>
-
-    <!-- Section 5 -->
-    <div class="card" id="sec5">
-      <div class="sec-hdr"><div class="sec-num">5</div><div class="sec-title">Booked by BDR</div></div>
-      <div class="sec-desc">Per-rep call volume and conversion.</div>
-      <div class="tbl-wrap" id="sec5-table"></div>
-      <div style="margin-top:20px">
-        <div style="position:relative" id="bdr-chart-container">
-          <canvas id="bdr-chart"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Section 6 -->
-    <div class="card" id="sec6">
-      <div class="sec-hdr"><div class="sec-num">6</div><div class="sec-title">How Are Calls Converting?</div></div>
-      <div class="sec-desc">Overall outcome distribution and monthly trend.</div>
-      <div class="chart-row">
-        <div>
-          <div class="chart-box"><canvas id="donut-chart"></canvas></div>
-        </div>
-        <div>
-          <div class="trend-scroll" id="trend-table"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="footer mono" id="footer"></div>
+  <div class="header-right">
+    <span class="last-updated" id="last-updated-text">Fetching data...</span>
+    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
   </div>
 </div>
 
-<script>
-// ─── CONFIG ───────────────────────────────────────────────────────────────────
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoVsOY11e7lMohipmKfIGb8zUSZxm1mG9pMrthAnX2a4ekpbe9tCOkSWpZFaETtXsEbusQXguYocDe/pub?gid=1598191109&single=true&output=csv";
-const PROXIES = [
-  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-  u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
-  u => `https://cors-anywhere.herokuapp.com/${u}`
-];
+<div id="loading-state">
+  <div class="spinner"></div>
+  <div class="loading-text">Fetching latest data from Google Sheets...</div>
+</div>
 
-// ─── STATUS SYSTEM ────────────────────────────────────────────────────────────
-const STATUS_MAP = {
-  scheduled:  {key:'scheduled',  label:'Scheduled',       cls:'badge-scheduled',  fill:'#3B82F6', bg:'#EFF6FF', tc:'#1D4ED8'},
-  sal:        {key:'sal',        label:'Sales Accepted',   cls:'badge-sal',        fill:'#22C55E', bg:'#DCFCE7', tc:'#166534'},
-  dq:         {key:'dq',        label:'DQed',             cls:'badge-dq',         fill:'#EF4444', bg:'#FEE2E2', tc:'#991B1B'},
-  noshow:     {key:'noshow',    label:'Declined/No-show', cls:'badge-noshow',     fill:'#F59E0B', bg:'#FEF3C7', tc:'#92400E'},
-  rescheduled:{key:'rescheduled',label:'Rescheduled',     cls:'badge-rescheduled',fill:'#A78BFA', bg:'#F3E8FF', tc:'#7C3AED'},
-  lto:        {key:'lto',       label:'LTO',              cls:'badge-lto',        fill:'#2DD4BF', bg:'#CCFBF1', tc:'#0F766E'},
-  prequal:    {key:'prequal',   label:'Pre-Qal',          cls:'badge-prequal',    fill:'#8B5CF6', bg:'#EDE9FE', tc:'#5B21B6'},
-  missing:    {key:'missing',   label:'Outcome Missing',  cls:'badge-missing',    fill:'#F97316', bg:'#FFEDD5', tc:'#9A3412'},
-  other:      {key:'other',     label:'Other',            cls:'badge-other',      fill:'#9CA3AF', bg:'#E5E7EB', tc:'#6B7280'},
+<div id="error-state">
+  <div class="error-icon">⚠️</div>
+  <div class="error-title">Could not load data</div>
+  <div class="error-msg" id="error-msg-text">There was a problem fetching data from Google Sheets.</div>
+</div>
+
+<div id="main-content">
+
+  <div class="period-bar">
+    <span><span class="period-dot"></span> Live</span>
+    <span>Period: <strong id="footer-period">—</strong></span>
+    <span>Direction: <strong>Outbound</strong></span>
+    <span>Total Calls: <strong id="footer-total">—</strong></span>
+    <span>Reps: <strong id="footer-reps">—</strong></span>
+    <span>Source: <strong>JustCall via Google Sheets</strong></span>
+  </div>
+
+  <!-- S1: MEETINGS SET -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">🗓 Meetings Set <span style="font-weight:400;font-size:13px;color:var(--text-muted)">(Till date, all reps)</span></div>
+      <div class="section-desc">Total meetings booked per BDR across all data in the sheet. Calls per meeting = efficiency ratio.</div>
+    </div>
+    <div class="table-wrap">
+      <div class="scroll-wrap"><table id="meetings-table"></table></div>
+    </div>
+  </div>
+
+  <!-- S2: CURRENT WEEK -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">📅 Current Week <span id="cw-range-label" style="font-weight:400;font-size:13px;color:var(--text-muted)"></span></div>
+      <div class="section-desc">This week's performance per BDR (Mon–today). Connect % = Connects / Total Calls. MC % = Meaningful Convos / Connects.</div>
+    </div>
+    <div class="filter-bar">
+      <span class="filter-label">Filter:</span>
+      <select id="cw-rep-filter" onchange="renderSummarySection('cw')"></select>
+      <input type="date" id="cw-date-from" onchange="renderSummarySection('cw')"/>
+      <span class="filter-label">to</span>
+      <input type="date" id="cw-date-to" onchange="renderSummarySection('cw')"/>
+      <button class="clear-btn" onclick="clearSummaryFilters('cw')">Clear</button>
+    </div>
+    <div id="cw-motiv"></div>
+    <div class="cards-grid" id="cw-cards"></div>
+  </div>
+
+  <!-- S2: MTD -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">🗓 Month to Date <span id="mtd-range-label" style="font-weight:400;font-size:13px;color:var(--text-muted)"></span></div>
+      <div class="section-desc">Cumulative metrics from the 1st of this month through today.</div>
+    </div>
+    <div class="filter-bar">
+      <span class="filter-label">Filter:</span>
+      <select id="mtd-rep-filter" onchange="renderSummarySection('mtd')"></select>
+      <input type="date" id="mtd-date-from" onchange="renderSummarySection('mtd')"/>
+      <span class="filter-label">to</span>
+      <input type="date" id="mtd-date-to" onchange="renderSummarySection('mtd')"/>
+      <button class="clear-btn" onclick="clearSummaryFilters('mtd')">Clear</button>
+    </div>
+    <div id="mtd-motiv"></div>
+    <div class="cards-grid" id="mtd-cards"></div>
+  </div>
+
+  <!-- S5: DISPOSITION BREAKDOWN -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">🗂️ Disposition Breakdown <span style="font-weight:400;font-size:13px;color:var(--text-muted)">(Filterable)</span></div>
+      <div class="section-desc">Each row is a BDR, each column is a disposition. NC = Non-Connect, MC = Meaningful Convo eligible.</div>
+    </div>
+    <div class="filter-bar">
+      <span class="filter-label">Filter:</span>
+      <select id="disp-rep-filter" onchange="renderDispositionTable()"></select>
+      <input type="date" id="disp-date-from" onchange="renderDispositionTable()"/>
+      <span class="filter-label">to</span>
+      <input type="date" id="disp-date-to" onchange="renderDispositionTable()"/>
+      <button class="clear-btn" onclick="clearDispFilters()">Clear</button>
+    </div>
+    <div class="table-wrap disp-table-wrap">
+      <table id="disposition-table"></table>
+    </div>
+  </div>
+
+  <!-- S6: CHART -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">📊 Call Outcome Breakdown</div>
+      <div class="section-desc">Visual breakdown of meaningful convos, other connects, and non-connects per BDR.</div>
+    </div>
+    <div class="filter-bar">
+      <span class="filter-label">Filter:</span>
+      <select id="chart-rep-filter" onchange="renderOutcomeChart()"></select>
+      <input type="date" id="chart-date-from" onchange="renderOutcomeChart()"/>
+      <span class="filter-label">to</span>
+      <input type="date" id="chart-date-to" onchange="renderOutcomeChart()"/>
+      <button class="clear-btn" onclick="clearChartFilters()">Clear</button>
+    </div>
+    <div class="chart-card">
+      <div class="chart-container"><canvas id="outcome-chart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- S7: DAY ON DAY -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">📅 Day-on-Day Breakdown</div>
+      <div class="section-desc">Each row shows one BDR's metrics for a specific date. Sortable columns, filterable by rep and date range.</div>
+    </div>
+    <div class="filter-bar">
+      <span class="filter-label">Filter:</span>
+      <select id="rep-filter" onchange="renderDodTable()"></select>
+      <input type="date" id="date-from" onchange="renderDodTable()"/>
+      <span class="filter-label">to</span>
+      <input type="date" id="date-to" onchange="renderDodTable()"/>
+      <button class="clear-btn" onclick="clearDodFilters()">Clear</button>
+    </div>
+    <div class="dod-table-wrap"><table id="dod-table"></table></div>
+  </div>
+
+</div>
+
+<div class="footer" id="footer-bar" style="display:none">
+  <span>Source: <strong>JustCall via Google Sheets</strong></span>
+  <span>Period: <strong id="footer-period-2">—</strong></span>
+  <span>Direction: <strong>Outbound only</strong></span>
+  <span>MC threshold: <strong>≥ 90 seconds</strong></span>
+  <span>Total Calls: <strong id="footer-total-2">—</strong></span>
+  <span>Refreshed: <strong id="footer-refreshed">—</strong></span>
+</div>
+
+<script>
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSM1TpPHBqHM1WHx2jwOtNTrPuA55fiG7MifQ6FoCz_C0KrmMkBkRAqhQfYC_bmntSEnUpAC_PmVtjM/pub?gid=0&single=true&output=csv';
+
+const NON_CONNECT = ['abm: no answer','abm: left vm','abm: no longer with the company','abm: gatekeeper','abm: bad numbers'];
+const MEANINGFUL_DISPS = ['abm: send email','abm: referral','abm: not interested','abm: ni - using carta','abm: meeting set','abm: lto','abm: dnd - don\'t call back','abm: call back later'];
+
+const QUOTES = {
+  calls: ["Dialling harder than anyone in the room. The phones don't lie.","Volume is a choice — and you chose greatness.","Every ring is a rep. You're putting in the reps.","The grind shows up in the numbers. Keep going.","More calls, more chances. You get it."],
+  connects: ["People pick up for you. That's a skill, not luck.","Connection is currency. You're rich.","Getting through where others give up — that's your edge.","Connects don't happen by accident. You earned every one.","They answered. Now go close."],
+  connectPct: ["Quality outreach, every single time. Elite.","Your connect rate is a masterclass in cold calling.","Efficiency is the game. You wrote the rulebook.","Getting through isn't luck — it's strategy. Yours is working.","Best connect rate in the room. Own it."],
+  meaningful: ["Turning conversations into opportunities. That's the craft.","Meaningful conversations don't happen by accident. You're exceptional.","Getting people to open up — rare. You make it look easy.","Deep conversations lead to big deals. Keep drilling.","You don't just connect. You resonate."],
+  meetings: ["Meetings on the board. The pipeline thanks you.","Calendar booked. Future revenue locked in.","Every meeting is a door you opened. Well done.","Setting meetings is an art. You're painting masterpieces.","The scoreboard has your name at the top. Keep stacking."]
 };
 
-function normalizeStatus(raw) {
-  if (!raw || !raw.trim()) return STATUS_MAP.other;
-  const v = raw.trim().toLowerCase();
-  if (v.includes('sales accepted') || v === 'sal') return STATUS_MAP.sal;
-  if (v.includes('dq')) return STATUS_MAP.dq;
-  if (v.includes('decline') || v.includes('no-show') || v.includes('no show')) return STATUS_MAP.noshow;
-  if (v.includes('reschedul')) return STATUS_MAP.rescheduled;
-  if (v.includes('lto')) return STATUS_MAP.lto;
-  if (v.includes('pre-qal') || v.includes('prequal') || v.includes('pre qal')) return STATUS_MAP.prequal;
-  if (v.includes('schedul')) return STATUS_MAP.scheduled;
-  return {...STATUS_MAP.other, label: raw.trim()};
+const usedQuotes = {};
+function rndUniqueQuote(cat, repName) {
+  const a = QUOTES[cat] || QUOTES.calls;
+  const key = cat + '__' + repName;
+  if (!usedQuotes[key]) usedQuotes[key] = [];
+  // reset if all used
+  if (usedQuotes[key].length >= a.length) usedQuotes[key] = [];
+  const available = a.filter((_, i) => !usedQuotes[key].includes(i));
+  const idx = available.length > 0 ? a.indexOf(available[Math.floor(Math.random() * available.length)]) : Math.floor(Math.random() * a.length);
+  usedQuotes[key].push(idx);
+  return a[idx];
 }
 
-function badge(status, extraCls='') {
-  return `<span class="badge ${status.cls} ${extraCls}">${esc(status.label)}</span>`;
+let allRows = [], dodSortCol = 'date', dodSortDir = 'desc', outcomeChart = null;
+let allReps = [], globalMin = '', globalMax = '';
+
+// ── DATE HELPERS ──
+function toYMD(d) { return d.toISOString().slice(0,10); }
+function getCWRange() {
+  const now = new Date(), day = now.getDay();
+  const mon = new Date(now); mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+  const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+  return { from: toYMD(mon), to: toYMD(fri) };
+}
+function getMTDRange() {
+  const now = new Date();
+  return { from: toYMD(new Date(now.getFullYear(), now.getMonth(), 1)), to: toYMD(now) };
 }
 
-// ─── DATE UTILS ───────────────────────────────────────────────────────────────
-function parseDate(str) {
-  if (!str || !str.trim()) return null;
-  const s = str.trim();
-  // Try DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
-  let m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
-  if (m) {
-    let d = parseInt(m[1]), mo = parseInt(m[2]), y = parseInt(m[3]);
-    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-      const dt = new Date(y, mo-1, d);
-      if (dt.getDate() === d) return dt;
-    }
-    // fallback MM/DD/YYYY
-    [d, mo] = [mo, d];
-    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-      const dt = new Date(y, mo-1, d);
-      if (dt.getDate() === d) return dt;
-    }
-  }
-  // Try YYYY-MM-DD
-  m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (m) {
-    const dt = new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]));
-    if (!isNaN(dt)) return dt;
-  }
-  return 'error';
+
+// ── CSV ──
+function toTitleCase(s) { if(!s) return s; if(s===s.toUpperCase()&&s.length>2) return s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()); return s; }
+function parseCSVLine(line) {
+  const r=[]; let cur='', inQ=false;
+  for(const c of line) { if(c==='"'){inQ=!inQ;}else if(c===','&&!inQ){r.push(cur.trim());cur='';}else{cur+=c;} }
+  r.push(cur.trim()); return r;
 }
-
-function fmtDate(dt) {
-  if (!dt || dt === 'error') return '—';
-  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${days[dt.getDay()]}, ${dt.getDate()} ${months[dt.getMonth()]}`;
-}
-
-function fmtDateLong(dt) {
-  if (!dt) return '—';
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${String(dt.getDate()).padStart(2,'0')} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
-}
-
-function fmtMonthKey(dt) {
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${months[dt.getMonth()]} ${dt.getFullYear()}`;
-}
-
-function getWeekBounds(offset=0) {
-  const now = new Date(); now.setHours(0,0,0,0);
-  const day = now.getDay(); // 0=Sun
-  const monday = new Date(now); monday.setDate(now.getDate() - ((day+6)%7) + offset*7);
-  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6); sunday.setHours(23,59,59,999);
-  return {start:monday, end:sunday};
-}
-
-function inWeek(dt, bounds) {
-  if (!dt || dt==='error') return false;
-  return dt >= bounds.start && dt <= bounds.end;
-}
-
-function weekLabel(bounds) {
-  return `${fmtDateLong(bounds.start)} — ${fmtDateLong(bounds.end)}`;
-}
-
-function wcLabel(dt) {
-  if (!dt || dt==='error') return '—';
-  const day = dt.getDay();
-  const mon = new Date(dt); mon.setDate(dt.getDate() - ((day+6)%7));
-  return `W/c ${fmtDateLong(mon).slice(0,6)}`;
-}
-
-function today() {const d=new Date();d.setHours(0,0,0,0);return d;}
-
-function isToday(dt) {
-  if (!dt||dt==='error') return false;
-  const t=today(); return dt.toDateString()===t.toDateString();
-}
-
-// ─── STRING UTILS ─────────────────────────────────────────────────────────────
-function esc(s) {
-  if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-
-function pct(n, total) {
-  if (!total) return '0%';
-  return Math.round(n/total*100)+'%';
-}
-
-// ─── CSV PARSING ──────────────────────────────────────────────────────────────
 function parseCSV(text) {
-  const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
-  const rows = [];
-  for (let line of lines) {
-    const row = [];
-    let cur = '', inQ = false;
-    for (let i=0; i<line.length; i++) {
-      const ch = line[i];
-      if (inQ) {
-        if (ch==='"' && line[i+1]==='"') { cur+='"'; i++; }
-        else if (ch==='"') inQ=false;
-        else cur+=ch;
-      } else {
-        if (ch==='"') inQ=true;
-        else if (ch===',') { row.push(cur.trim()); cur=''; }
-        else cur+=ch;
-      }
-    }
-    row.push(cur.trim());
-    rows.push(row);
+  const lines = text.split('\n'); if(lines.length<2) return [];
+  const h = lines[0].split(',').map(s=>s.trim().replace(/^"|"$/g,'').toLowerCase());
+  const agentCol=h.findIndex(x=>x.includes('agent name'));
+  const dirCol=h.findIndex(x=>x.includes('direction'));
+  const dateCol=h.findIndex(x=>x==='date');
+  const dispCol=h.findIndex(x=>x.includes('disposition'));
+  const durCol=h.findIndex(x=>x.includes('duration')&&x.includes('second'));
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const line=lines[i].trim(); if(!line) continue;
+    const cells=parseCSVLine(line);
+    if((cells[dirCol]||'').trim().toLowerCase()!=='outbound') continue;
+    const agent=toTitleCase((cells[agentCol]||'').trim()); if(!agent) continue;
+    rows.push({ agent, date:(cells[dateCol]||'').trim(), disp:(cells[dispCol]||'').trim(), dispLower:(cells[dispCol]||'').trim().toLowerCase(), dur:parseInt(cells[durCol]||'0',10)||0 });
   }
   return rows;
 }
 
-function colIdx(headers, ...names) {
-  const lower = headers.map(h=>h.toLowerCase().trim());
-  for (const name of names) {
-    const i = lower.indexOf(name.toLowerCase().trim());
-    if (i>=0) return i;
+// ── METRIC LOGIC ──
+const isConnect = d => !NON_CONNECT.includes(d);
+const isMeaningful = (d,dur) => MEANINGFUL_DISPS.includes(d) && dur>=90;
+const isMeeting = d => d==='abm: meeting set';
+const isBadNum = d => d==='abm: bad numbers';
+
+function computeStats(rows) {
+  const reps={};
+  for(const r of rows){
+    if(!reps[r.agent]) reps[r.agent]={totalCalls:0,connects:0,meaningful:0,meetings:0,badNumbers:0,dispositions:{}};
+    const s=reps[r.agent]; s.totalCalls++;
+    if(isConnect(r.dispLower)) s.connects++;
+    if(isMeaningful(r.dispLower,r.dur)) s.meaningful++;
+    if(isMeeting(r.dispLower)) s.meetings++;
+    if(isBadNum(r.dispLower)) s.badNumbers++;
+    s.dispositions[r.disp]=(s.dispositions[r.disp]||0)+1;
   }
-  return -1;
+  return reps;
 }
 
-// ─── DATA PROCESSING ──────────────────────────────────────────────────────────
-let ALL_ROWS = [];
-let SOURCE_LABEL = '';
-let bdrChartInst = null;
-let donutChartInst = null;
-
-function processCSV(csvText, source) {
-  SOURCE_LABEL = source;
-  const rows = parseCSV(csvText);
-  if (rows.length < 2) { showError('No data found in CSV.'); return; }
-
-  const headers = rows[0];
-  const ci = {
-    sdr:     colIdx(headers,'SDR'),
-    company: colIdx(headers,'Company Name'),
-    prospect:colIdx(headers,'Prospect Name'),
-    role:    colIdx(headers,'Prospect Role'),
-    dcdate:  colIdx(headers,'DC Date'),
-    time:    colIdx(headers,'Meeting Time'),
-    booked:  colIdx(headers,'Booked Date'),
-    ae:      colIdx(headers,'AE/Owner','AE / Owner'),
-    status:  colIdx(headers,'DC Status'),
-    summary: colIdx(headers,'Summary of Call'),
-    nextstep:colIdx(headers,'Next Steps'),
-  };
-
-  const get = (row, idx) => idx>=0 ? (row[idx]||'').trim() : '';
-
-  const rawRows = [];
-  for (let i=1; i<rows.length; i++) {
-    const row = rows[i];
-    if (row.every(c=>!c.trim())) continue; // blank row
-    rawRows.push({
-      sdr:      get(row,ci.sdr)     || 'Unknown',
-      company:  get(row,ci.company) || '—',
-      prospect: get(row,ci.prospect)|| '—',
-      role:     get(row,ci.role)    || '—',
-      dateRaw:  get(row,ci.dcdate),
-      timeRaw:  get(row,ci.time)    || '—',
-      ae:       get(row,ci.ae)      || '—',
-      statusRaw:get(row,ci.status),
-      summary:  get(row,ci.summary),
-      nextstep: get(row,ci.nextstep),
-    });
-  }
-
-  // BDR display names: first name only unless collision
-  const nameCount = {};
-  rawRows.forEach(r=>{
-    const first = r.sdr.split(' ')[0];
-    nameCount[first] = (nameCount[first]||0)+1;
-  });
-
-  // Detect duplicates
-  const dupSet = new Set();
-  const dupKeys = {};
-  rawRows.forEach((r,i)=>{
-    const k = `${r.prospect.toLowerCase()}|${r.dateRaw}|${r.sdr.toLowerCase()}`;
-    if (!dupKeys[k]) dupKeys[k]=[];
-    dupKeys[k].push(i);
-  });
-  Object.values(dupKeys).forEach(arr=>{ if(arr.length>1) arr.forEach(i=>dupSet.add(i)); });
-
-  const todayD = today();
-
-  ALL_ROWS = rawRows.map((r,i)=>{
-    const dt = parseDate(r.dateRaw);
-    const status = normalizeStatus(r.statusRaw);
-    const first = r.sdr.split(' ')[0];
-    const displayName = nameCount[first]>1 ? r.sdr : first;
-    // Outcome Missing override
-    let effectiveStatus = status;
-    if (dt && dt!=='error' && dt<todayD && status.key==='scheduled') {
-      effectiveStatus = STATUS_MAP.missing;
-    }
-    // Notes
-    const parts = [r.summary, r.nextstep].filter(Boolean);
-    const combined = parts.join(' | ');
-
-    return {
-      ...r,
-      dt,
-      status,
-      effectiveStatus,
-      displayName,
-      isDup: dupSet.has(i),
-      notes: combined,
-    };
-  });
-
-  buildDashboard();
-}
-
-// ─── BUILD DASHBOARD ──────────────────────────────────────────────────────────
-function buildDashboard() {
-  document.getElementById('loading-card').classList.add('hidden');
-  document.getElementById('upload-card').classList.add('hidden');
-  document.getElementById('dashboard').classList.remove('hidden');
-
-  const todayD = today();
-  const thisWeek = getWeekBounds(0);
-  const nextWeek = getWeekBounds(1);
-
-  // Header meta
-  const dates = ALL_ROWS.map(r=>r.dt).filter(d=>d&&d!=='error').sort((a,b)=>a-b);
-  const dateRange = dates.length ? `${fmtDateLong(dates[0])} – ${fmtDateLong(dates[dates.length-1])}` : '—';
-  document.getElementById('meta-range').textContent = dateRange;
-  document.getElementById('meta-total').textContent = `${ALL_ROWS.length} calls total`;
-  document.getElementById('meta-refresh').textContent = `Last refreshed: ${new Date().toLocaleTimeString()}`;
-
-  buildSection1(thisWeek, nextWeek, todayD);
-  buildSection2(thisWeek, todayD);
-  buildSection3(nextWeek);
-  buildSection4();
-  buildSection5();
-  buildSection6();
-  buildFooter(dateRange);
-}
-
-// ─── SECTION 1 ────────────────────────────────────────────────────────────────
-function buildSection1(thisWeek, nextWeek, todayD) {
-  const total = ALL_ROWS.length;
-  const count = key => ALL_ROWS.filter(r=>r.effectiveStatus.key===key).length;
-  const thisWkCount = ALL_ROWS.filter(r=>inWeek(r.dt,thisWeek)).length;
-  const nextWkCount = ALL_ROWS.filter(r=>inWeek(r.dt,nextWeek)).length;
-  const salN=count('sal'),dqN=count('dq'),noshowN=count('noshow'),reschedN=count('rescheduled'),
-        ltoN=count('lto'),prequalN=count('prequal'),missN=count('missing'),
-        schedFutureN=ALL_ROWS.filter(r=>r.effectiveStatus.key==='scheduled'&&r.dt&&r.dt!=='error'&&r.dt>=todayD).length;
-
-  const cards = [
-    {label:'Total Booked',     n:total,        fill:'#111111', bcolor:'#111111'},
-    {label:'This Week',        n:thisWkCount,  fill:'#6366F1', bcolor:'#6366F1'},
-    {label:'Next Week',        n:nextWkCount,  fill:'#8B5CF6', bcolor:'#8B5CF6'},
-    {label:'Sales Accepted',   n:salN,         fill:'#22C55E', bcolor:'#22C55E'},
-    {label:'DQed',             n:dqN,          fill:'#EF4444', bcolor:'#EF4444'},
-    {label:'Declined/No-show', n:noshowN,      fill:'#F59E0B', bcolor:'#F59E0B'},
-    {label:'Rescheduled',      n:reschedN,     fill:'#A78BFA', bcolor:'#A78BFA'},
-    {label:'LTO',              n:ltoN,         fill:'#2DD4BF', bcolor:'#2DD4BF'},
-    {label:'Pre-Qal',          n:prequalN,     fill:'#8B5CF6', bcolor:'#8B5CF6'},
-    {label:'Scheduled (upcoming)',n:schedFutureN,fill:'#3B82F6',bcolor:'#3B82F6'},
-    {label:'Outcome Missing',  n:missN,        fill:'#F97316', bcolor:'#F97316'},
-  ];
-
-  const grid = document.getElementById('cards-grid');
-  grid.innerHTML = cards.map(c=>`
-    <div class="stat-card" style="border-top-color:${c.bcolor}">
-      <div class="stat-label">${esc(c.label)}</div>
-      <div class="stat-num mono" style="color:${c.fill}">${c.n}</div>
-      <div class="stat-pct">${pct(c.n,total)} of all booked</div>
-    </div>`).join('');
-
-  const pending = total - salN - dqN - noshowN;
-  document.getElementById('funnel-row').innerHTML =
-    `Booked → <span>${total}</span> &nbsp;|&nbsp; SAL → <span>${salN}</span> (${pct(salN,total)}) &nbsp;|&nbsp; DQed → <span>${dqN}</span> (${pct(dqN,total)}) &nbsp;|&nbsp; Declined/No-show → <span>${noshowN}</span> (${pct(noshowN,total)}) &nbsp;|&nbsp; Pending → <span>${pending}</span> (${pct(pending,total)})`;
-}
-
-// ─── CALL TABLE ───────────────────────────────────────────────────────────────
-function notesCell(row) {
-  const full = esc(row.notes);
-  if (!row.notes) return `<span class="mono" style="color:var(--muted)">—</span>`;
-  if (row.notes.length <= 80) return `<span style="font-size:12px">${full}</span>`;
-  const short = esc(row.notes.slice(0,77));
-  return `<span class="note-wrap" onclick="this.classList.toggle('note-expanded')">
-    <span class="note-short mono" style="font-size:12px" data-short="${short}..." data-full="${full}">${short}… <span style="color:var(--today-border);font-size:10px">[expand]</span></span>
-    <span class="note-full" style="font-size:12px">${full} <span style="color:var(--today-border);font-size:10px">[collapse]</span></span>
-  </span>`;
-}
-
-function callRow(row, showWc=false) {
-  const todayD = today();
-  const isOM = row.effectiveStatus.key === 'missing';
-  const isTod = isToday(row.dt);
-  let rowCls = '';
-  if (isTod) rowCls = 'today-row';
-  if (isOM) rowCls += ' om-row';
-
-  const dateStr = row.dt && row.dt!=='error'
-    ? `<span class="mono">${fmtDate(row.dt)}</span>`
-    : `<span class="badge badge-dateerr">Date Error</span>`;
-  const timeStr = `<span class="mono" style="font-size:11px;color:var(--muted)">${esc(row.timeRaw)}</span>`;
-
-  const todayBadge = isTod ? `<span class="badge badge-today">Today</span>` : '';
-  const dupBadge = row.isDup ? `<span class="badge badge-dup">Possible dup</span>` : '';
-  const omNote = isOM && !row.notes ? '<span style="color:var(--muted);font-size:11px">No outcome logged yet</span>' : '';
-  const wcCol = showWc ? `<td class="mono" style="font-size:11px;color:var(--muted)">${wcLabel(row.dt)}</td>` : '';
-
-  return `<tr class="${rowCls}">
-    <td>${dateStr}<br/>${timeStr}${todayBadge}</td>
-    <td><strong style="font-size:13px">${esc(row.prospect)}</strong>${dupBadge}<br/><span style="color:var(--muted);font-size:12px">${esc(row.company)}</span></td>
-    <td style="font-size:12px;color:var(--muted)">${esc(row.role)}</td>
-    <td style="font-weight:600">${esc(row.displayName)}</td>
-    <td style="font-size:12px;color:var(--muted)">${esc(row.ae)}</td>
-    <td>${badge(row.effectiveStatus)}</td>
-    <td>${notesCell(row)}${omNote}</td>
-    ${wcCol}
-  </tr>`;
-}
-
-function callTable(rows, showWc=false) {
-  const wcTh = showWc ? '<th>Week</th>' : '';
-  return `<table>
-    <thead><tr>
-      <th>Date &amp; Time</th><th>Prospect</th><th>Title / Persona</th>
-      <th>Booked By</th><th>AE / Host</th><th>Status</th><th>Notes</th>${wcTh}
-    </tr></thead>
-    <tbody>${rows.map(r=>callRow(r,showWc)).join('')}</tbody>
-  </table>`;
-}
-
-// ─── SECTION 2 ────────────────────────────────────────────────────────────────
-function buildSection2(thisWeek) {
-  const rows = ALL_ROWS.filter(r=>inWeek(r.dt,thisWeek)).sort((a,b)=>a.dt-b.dt);
-  document.getElementById('sec2-title').textContent = `This Week — ${weekLabel(thisWeek)}`;
-  document.getElementById('sec2-badge').textContent = rows.length;
-  const el = document.getElementById('sec2-table');
-  if (!rows.length) { el.innerHTML = `<div class="empty-state">No calls scheduled this week.</div>`; return; }
-  el.innerHTML = callTable(rows);
-}
-
-// ─── SECTION 3 ────────────────────────────────────────────────────────────────
-function buildSection3(nextWeek) {
-  const rows = ALL_ROWS.filter(r=>inWeek(r.dt,nextWeek)).sort((a,b)=>a.dt-b.dt);
-  document.getElementById('sec3-title').textContent = `Next Week — ${weekLabel(nextWeek)}`;
-  document.getElementById('sec3-badge').textContent = rows.length;
-  const el = document.getElementById('sec3-table');
-  if (!rows.length) { el.innerHTML = `<div class="empty-warn">⚠️ No calls booked for next week yet — pipeline risk</div>`; return; }
-  el.innerHTML = `<div class="tbl-wrap">${callTable(rows)}</div>`;
-}
-
-// ─── SECTION 4 ────────────────────────────────────────────────────────────────
-let filteredRows = [];
-function buildSection4() {
-  const sortedAll = [...ALL_ROWS].sort((a,b)=>{
-    if (!a.dt||a.dt==='error') return 1;
-    if (!b.dt||b.dt==='error') return -1;
-    return b.dt-a.dt;
-  });
-  filteredRows = sortedAll;
-  document.getElementById('sec4-badge').textContent = ALL_ROWS.length;
-
-  // Populate BDR dropdown
-  const bdrs = [...new Set(ALL_ROWS.map(r=>r.displayName))].sort();
-  const fBdr = document.getElementById('f-bdr');
-  bdrs.forEach(b=>{ const o=document.createElement('option'); o.value=b; o.textContent=b; fBdr.appendChild(o); });
-
-  // Populate Status dropdown
-  const statuses = [...new Set(ALL_ROWS.map(r=>r.effectiveStatus.label))].sort();
-  const fSt = document.getElementById('f-status');
-  statuses.forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; fSt.appendChild(o); });
-
-  renderSection4(sortedAll);
-}
-
-function renderSection4(rows) {
-  const el = document.getElementById('sec4-table');
-  document.getElementById('filter-count').textContent = `Showing ${rows.length} of ${ALL_ROWS.length} calls`;
-  if (!rows.length) { el.innerHTML=`<div class="empty-state">No calls match your filters.</div>`; return; }
-  el.innerHTML = callTable(rows, true);
-}
-
-function applyFilters() {
-  const bdr = document.getElementById('f-bdr').value;
-  const status = document.getElementById('f-status').value;
-  const search = document.getElementById('f-search').value.toLowerCase();
-  const from = document.getElementById('f-from').value ? new Date(document.getElementById('f-from').value) : null;
-  const to = document.getElementById('f-to').value ? new Date(document.getElementById('f-to').value) : null;
-  if (to) to.setHours(23,59,59,999);
-
-  const sorted = [...ALL_ROWS].sort((a,b)=>{
-    if (!a.dt||a.dt==='error') return 1;
-    if (!b.dt||b.dt==='error') return -1;
-    return b.dt-a.dt;
-  });
-
-  filteredRows = sorted.filter(r=>{
-    if (bdr && r.displayName !== bdr) return false;
-    if (status && r.effectiveStatus.label !== status) return false;
-    if (search && !r.prospect.toLowerCase().includes(search) && !r.company.toLowerCase().includes(search)) return false;
-    if (from && r.dt && r.dt!=='error' && r.dt < from) return false;
-    if (to && r.dt && r.dt!=='error' && r.dt > to) return false;
+function filterRows(rows,rep,from,to) {
+  return rows.filter(r=>{
+    if(rep&&r.agent!==rep) return false;
+    if(from&&r.date<from) return false;
+    if(to&&r.date>to) return false;
     return true;
   });
-  renderSection4(filteredRows);
 }
 
-function resetFilters() {
-  document.getElementById('f-bdr').value='';
-  document.getElementById('f-status').value='';
-  document.getElementById('f-search').value='';
-  document.getElementById('f-from').value='';
-  document.getElementById('f-to').value='';
-  applyFilters();
+// ── MOTIV BANNER ──
+function buildMotivBanner(repStats) {
+  const entries=Object.entries(repStats);
+  if(!entries.length) return '';
+  const sorted=entries.sort((a,b)=>b[1].totalCalls-a[1].totalCalls);
+  const top=sorted.slice(0,3);
+  const medals=['🥇','🥈','🥉'], classes=['gold','silver','bronze'];
+  const rows=top.map(([rep,s],i)=>`
+    <div class="motiv-row">
+      <span class="motiv-rank ${classes[i]}">${medals[i]}</span>
+      <span class="motiv-name">${rep}</span>
+      <span class="motiv-stat">${s.totalCalls} calls</span>
+      <span class="motiv-quote">"${rndUniqueQuote('calls', rep)}"</span>
+    </div>`).join('');
+  return `<div class="motiv-banner"><div class="motiv-icon">🔥</div><div class="motiv-content"><h3>Top Performers This Period</h3><div class="motiv-leaderboard">${rows}</div></div></div>`;
 }
 
-// ─── SECTION 5 ────────────────────────────────────────────────────────────────
-function buildSection5() {
-  const bdrMap = {};
-  ALL_ROWS.forEach(r=>{
-    if (!bdrMap[r.displayName]) bdrMap[r.displayName]={name:r.displayName,total:0,sal:0,dq:0,noshow:0,sched:0,missing:0};
-    const b=bdrMap[r.displayName];
-    b.total++;
-    const k=r.effectiveStatus.key;
-    if(k==='sal')b.sal++;
-    else if(k==='dq')b.dq++;
-    else if(k==='noshow')b.noshow++;
-    else if(k==='scheduled')b.sched++;
-    else if(k==='missing')b.missing++;
-  });
+// ── SUMMARY CARDS ──
+function buildCard(rep,s) {
+  const cp=s.totalCalls?(s.connects/s.totalCalls*100).toFixed(1):'0.0';
+  const mp=s.connects?(s.meaningful/s.connects*100).toFixed(1):'0.0';
+  const bp=s.totalCalls?(s.badNumbers/s.totalCalls*100).toFixed(1):'0.0';
+  const cpN=parseFloat(cp),mpN=parseFloat(mp),bpN=parseFloat(bp);
+  const cpC=cpN>=50?'green':cpN>=30?'amber':'red';
+  const mpC=mpN>=30?'green':mpN>=15?'amber':'red';
+  const bpC=bpN>=10?'red':bpN>=5?'amber':'green';
+  return `<div class="rep-card">
+    <div class="card-header">
+      <div class="card-name">${rep}</div>
+      <div class="card-badge">${s.totalCalls} calls</div>
+    </div>
+    <div class="metrics-grid">
+      <div class="metric-box"><div class="metric-label">Total Calls</div><div class="metric-value blue">${s.totalCalls}</div></div>
+      <div class="metric-box"><div class="metric-label">Connects</div><div class="metric-value green">${s.connects}</div></div>
+      <div class="metric-box hl-${cpC}"><div class="metric-label">Connect %</div><div class="metric-value ${cpC}">${cp}%</div></div>
+      <div class="metric-box"><div class="metric-label">Meaningful</div><div class="metric-value purple">${s.meaningful}</div></div>
+      <div class="metric-box hl-${mpC}"><div class="metric-label">MC %</div><div class="metric-value ${mpC}">${mp}%</div></div>
+      <div class="metric-box"><div class="metric-label">Non-Connect</div><div class="metric-value grey">${s.totalCalls-s.connects}</div></div>
+      <div class="metric-box"><div class="metric-label">Bad Numbers</div><div class="metric-value red">${s.badNumbers}</div></div>
+      <div class="metric-box hl-${bpC==='red'?'red':bpC==='amber'?'amber':'green'}"><div class="metric-label">Bad # %</div><div class="metric-value ${bpC}">${bp}%</div></div>
+      <div class="metric-box"><div class="metric-label">Meetings Set</div><div class="metric-value green">${s.meetings}</div></div>
+    </div>
+  </div>`;
+}
 
-  const bdrs = Object.values(bdrMap).sort((a,b)=>b.total-a.total);
+function renderSummarySection(prefix) {
+  const rep=document.getElementById(`${prefix}-rep-filter`).value;
+  const from=document.getElementById(`${prefix}-date-from`).value;
+  const to=document.getElementById(`${prefix}-date-to`).value;
+  const stats=computeStats(filterRows(allRows,rep,from,to));
+  const sorted=Object.entries(stats).sort((a,b)=>b[1].totalCalls-a[1].totalCalls);
+  document.getElementById(`${prefix}-motiv`).innerHTML=buildMotivBanner(stats);
+  document.getElementById(`${prefix}-cards`).innerHTML=sorted.map(([r,s])=>buildCard(r,s)).join('');
+}
 
-  // Conditional formatting
-  const salRates = bdrs.map(b=>b.total?b.sal/b.total:0);
-  const maxSAL = Math.max(...salRates), minSAL = Math.min(...salRates);
-  const missings = bdrs.map(b=>b.missing);
-  const maxMiss = Math.max(...missings);
+function clearSummaryFilters(prefix) {
+  const ranges={cw:getCWRange(),mtd:getMTDRange()};
+  const r=ranges[prefix];
+  document.getElementById(`${prefix}-rep-filter`).value='';
+  document.getElementById(`${prefix}-date-from`).value=r.from;
+  document.getElementById(`${prefix}-date-to`).value=r.to;
+  renderSummarySection(prefix);
+}
 
-  const rows = bdrs.map((b,i)=>{
-    const salRate = b.total ? Math.round(b.sal/b.total*100) : 0;
-    const salRateCls = salRate/100===maxSAL ? 'cell-best' : (salRate/100===minSAL&&salRate/100<maxSAL) ? 'cell-worst' : '';
-    const missCls = b.missing===0 ? 'cell-best' : (b.missing===maxMiss&&maxMiss>0) ? 'cell-worst' : '';
-    return `<tr>
-      <td><strong>${esc(b.name)}</strong></td>
-      <td class="mono">${b.total}</td>
-      <td class="mono">${b.sal} <span style="color:var(--muted)">(${pct(b.sal,b.total)})</span></td>
-      <td class="mono">${b.dq} <span style="color:var(--muted)">(${pct(b.dq,b.total)})</span></td>
-      <td class="mono">${b.noshow} <span style="color:var(--muted)">(${pct(b.noshow,b.total)})</span></td>
-      <td class="mono">${b.sched}</td>
-      <td class="mono ${missCls}">${b.missing}</td>
-      <td class="mono ${salRateCls}">${salRate}%</td>
+// ── MEETINGS TABLE ──
+function renderMeetingsTable(stats) {
+  const sorted=Object.entries(stats).sort((a,b)=>b[1].meetings-a[1].meetings);
+  const total=sorted.reduce((s,[,v])=>s+v.meetings,0);
+  const tbl=document.getElementById('meetings-table');
+  let html='<thead><tr><th>#</th><th>BDR</th><th>Meetings Set</th><th>Share</th><th>Calls per Meeting</th></tr></thead><tbody>';
+  sorted.forEach(([rep,s],i)=>{
+    const share=total?(s.meetings/total*100).toFixed(1):'0.0';
+    const cpm=s.meetings?(s.totalCalls/s.meetings).toFixed(1):'—';
+    const bw=sorted[0][1].meetings?Math.round(s.meetings/sorted[0][1].meetings*100):0;
+    html+=`<tr>
+      <td class="mono-cell" style="color:var(--text-muted)">${i+1}</td>
+      <td class="rep-name-cell">${rep}</td>
+      <td><div style="display:flex;align-items:center;gap:10px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--green);min-width:28px">${s.meetings}</span>
+        <div style="flex:1;background:var(--border);border-radius:4px;height:8px;min-width:80px">
+          <div style="width:${bw}%;background:var(--green);border-radius:4px;height:8px"></div>
+        </div>
+      </div></td>
+      <td><span class="pill pill-green">${share}%</span></td>
+      <td class="mono-cell" style="color:var(--text-muted)">${cpm}</td>
     </tr>`;
-  }).join('');
-
-  document.getElementById('sec5-table').innerHTML=`<table>
-    <thead><tr>
-      <th>BDR</th><th>Total</th><th>SAL</th><th>DQed</th><th>Decl/No-show</th>
-      <th>Sched (future)</th><th>Outcome Missing</th><th>SAL Rate</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
-
-  // Stacked bar chart
-  const STATUS_KEYS = ['sal','dq','noshow','rescheduled','lto','prequal','scheduled','missing'];
-  const STATUS_LABELS = ['SAL','DQ','No-show','Rescheduled','LTO','Pre-Qal','Scheduled','Outcome Missing'];
-  const STATUS_FILLS = ['#22C55E','#EF4444','#F59E0B','#A78BFA','#2DD4BF','#8B5CF6','#3B82F6','#F97316'];
-
-  const bdrCountsByStatus = {};
-  STATUS_KEYS.forEach(k=>bdrCountsByStatus[k]=[]);
-  bdrs.forEach(b=>{
-    ALL_ROWS.filter(r=>r.displayName===b.name).forEach(r=>{
-      // already counted above, let's count per status
-    });
-    const statusCounts = {};
-    STATUS_KEYS.forEach(k=>statusCounts[k]=0);
-    ALL_ROWS.filter(r=>r.displayName===b.name).forEach(r=>{
-      const k=r.effectiveStatus.key;
-      if(statusCounts[k]!==undefined) statusCounts[k]++;
-    });
-    STATUS_KEYS.forEach(k=>bdrCountsByStatus[k].push(statusCounts[k]||0));
   });
+  html+=`<tr class="total-row"><td></td><td>Total</td><td style="font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--green)">${total}</td><td></td><td></td></tr>`;
+  tbl.innerHTML=html+'</tbody>';
+}
 
-  const h = Math.max(250, bdrs.length*42);
-  const container = document.getElementById('bdr-chart-container');
-  container.style.height = h+'px';
+// ── DISPOSITION TABLE ──
+function clearDispFilters() {
+  document.getElementById('disp-rep-filter').value='';
+  document.getElementById('disp-date-from').value=globalMin;
+  document.getElementById('disp-date-to').value=globalMax;
+  renderDispositionTable();
+}
+function renderDispositionTable() {
+  const rep=document.getElementById('disp-rep-filter').value;
+  const from=document.getElementById('disp-date-from').value;
+  const to=document.getElementById('disp-date-to').value;
+  const filtered=filterRows(allRows,rep,from,to);
+  const stats=computeStats(filtered);
+  const disps=[...new Set(filtered.map(r=>r.disp).filter(Boolean))].sort();
+  const reps=Object.keys(stats).sort((a,b)=>stats[b].totalCalls-stats[a].totalCalls);
+  const tbl=document.getElementById('disposition-table');
+  let html='<thead><tr><th>BDR</th>';
+  for(const d of disps){
+    const nc=NON_CONNECT.includes(d.toLowerCase()),mc=MEANINGFUL_DISPS.includes(d.toLowerCase());
+    html+=`<th>${d}${nc?' <span class="pill pill-red">NC</span>':''}${mc?' <span class="pill pill-purple">MC</span>':''}</th>`;
+  }
+  html+='<th>Total</th></tr></thead><tbody>';
+  for(const r of reps){
+    let rt=0; html+=`<tr><td class="rep-name-cell">${r}</td>`;
+    for(const d of disps){const c=stats[r].dispositions[d]||0;rt+=c;html+=`<td class="mono-cell">${c||'—'}</td>`;}
+    html+=`<td class="mono-cell" style="font-weight:600">${rt}</td></tr>`;
+  }
+  html+='<tr class="total-row"><td>Total</td>';
+  let grand=0;
+  for(const d of disps){let c=0;for(const r of reps)c+=stats[r].dispositions[d]||0;grand+=c;html+=`<td class="mono-cell">${c}</td>`;}
+  html+=`<td class="mono-cell">${grand}</td></tr></tbody>`;
+  tbl.innerHTML=html;
+}
 
-  if (bdrChartInst) bdrChartInst.destroy();
-  bdrChartInst = new Chart(document.getElementById('bdr-chart'), {
-    type:'bar',
-    plugins:[ChartDataLabels],
-    data:{
-      labels: bdrs.map(b=>b.name),
-      datasets: STATUS_KEYS.map((k,i)=>({
-        label: STATUS_LABELS[i],
-        data: bdrCountsByStatus[k],
-        backgroundColor: STATUS_FILLS[i],
-        borderWidth:0,
-      }))
-    },
-    options:{
-      indexAxis:'y',
-      responsive:true,
-      maintainAspectRatio:false,
+// ── OUTCOME CHART ──
+function clearChartFilters() {
+  document.getElementById('chart-rep-filter').value='';
+  document.getElementById('chart-date-from').value=globalMin;
+  document.getElementById('chart-date-to').value=globalMax;
+  renderOutcomeChart();
+}
+function renderOutcomeChart() {
+  const rep=document.getElementById('chart-rep-filter').value;
+  const from=document.getElementById('chart-date-from').value;
+  const to=document.getElementById('chart-date-to').value;
+  const stats=computeStats(filterRows(allRows,rep,from,to));
+  const reps=Object.keys(stats).sort((a,b)=>stats[b].totalCalls-stats[a].totalCalls);
+  if(outcomeChart) outcomeChart.destroy();
+  outcomeChart=new Chart(document.getElementById('outcome-chart').getContext('2d'),{
+    type:'bar', plugins:[ChartDataLabels],
+    data:{ labels:reps, datasets:[
+      {label:'Meaningful Convos',data:reps.map(r=>stats[r].meaningful),backgroundColor:'rgba(124,58,237,0.75)',borderRadius:0},
+      {label:'Other Connects',data:reps.map(r=>stats[r].connects-stats[r].meaningful),backgroundColor:'rgba(22,163,74,0.7)',borderRadius:0},
+      {label:'Non-Connects',data:reps.map(r=>stats[r].totalCalls-stats[r].connects),backgroundColor:'rgba(107,114,128,0.45)',borderRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
       plugins:{
-        legend:{position:'bottom',labels:{usePointStyle:true,pointStyle:'circle',padding:14,font:{family:'DM Sans',size:12}}},
-        datalabels:{display:false}
+        legend:{position:'top',labels:{font:{family:'DM Sans',size:12},boxWidth:12}},
+        datalabels:{color:'#fff',font:{family:'JetBrains Mono',size:11,weight:'bold'},formatter:v=>v>=3?v:'',anchor:'center',align:'center'}
       },
       scales:{
-        x:{stacked:true,grid:{color:'#E4E2DC'},ticks:{font:{family:'JetBrains Mono',size:11}}},
-        y:{stacked:true,grid:{display:false},ticks:{font:{family:'DM Sans',size:12}}}
+        x:{stacked:true,ticks:{font:{family:'DM Sans',size:12}},grid:{display:false}},
+        y:{stacked:true,ticks:{font:{family:'JetBrains Mono',size:11}},grid:{color:'#f3f4f6'}}
       }
     }
   });
 }
 
-// ─── SECTION 6 ────────────────────────────────────────────────────────────────
-function buildSection6() {
-  // Donut
-  const statusCounts = {};
-  ALL_ROWS.forEach(r=>{
-    const k=r.effectiveStatus.label;
-    statusCounts[k]=(statusCounts[k]||0)+1;
+// ── DOD TABLE ──
+function computeDod(rows) {
+  const d={};
+  for(const r of rows){
+    const k=`${r.agent}__${r.date}`;
+    if(!d[k]) d[k]={agent:r.agent,date:r.date,totalCalls:0,connects:0,meaningful:0,meetings:0};
+    d[k].totalCalls++;
+    if(isConnect(r.dispLower)) d[k].connects++;
+    if(isMeaningful(r.dispLower,r.dur)) d[k].meaningful++;
+    if(isMeeting(r.dispLower)) d[k].meetings++;
+  }
+  return Object.values(d);
+}
+function clearDodFilters() {
+  document.getElementById('rep-filter').value='';
+  document.getElementById('date-from').value=globalMin;
+  document.getElementById('date-to').value=globalMax;
+  renderDodTable();
+}
+function setDodSort(col) {
+  if(dodSortCol===col) dodSortDir=dodSortDir==='asc'?'desc':'asc';
+  else{dodSortCol=col;dodSortDir='desc';}
+  renderDodTable();
+}
+function renderDodTable() {
+  const rep=document.getElementById('rep-filter').value;
+  const from=document.getElementById('date-from').value;
+  const to=document.getElementById('date-to').value;
+  const data=computeDod(filterRows(allRows,rep,from,to));
+  data.sort((a,b)=>{
+    let va=a[dodSortCol],vb=b[dodSortCol];
+    if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase();}
+    return dodSortDir==='asc'?(va<vb?-1:va>vb?1:0):(va>vb?-1:va<vb?1:0);
   });
-  const donutLabels=Object.keys(statusCounts).filter(k=>statusCounts[k]>0);
-  const donutData=donutLabels.map(k=>statusCounts[k]);
-  const donutFills=donutLabels.map(k=>{
-    const found=Object.values(STATUS_MAP).find(s=>s.label===k);
-    return found?found.fill:'#9CA3AF';
-  });
-
-  if (donutChartInst) donutChartInst.destroy();
-  donutChartInst = new Chart(document.getElementById('donut-chart'), {
-    type:'doughnut',
-    plugins:[ChartDataLabels],
-    data:{labels:donutLabels,datasets:[{data:donutData,backgroundColor:donutFills,borderWidth:2,borderColor:'#fff'}]},
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      cutout:'55%',
-      plugins:{
-        legend:{position:'bottom',labels:{usePointStyle:true,pointStyle:'circle',padding:12,font:{family:'DM Sans',size:12}}},
-        datalabels:{
-          display:true,
-          color:'#111',
-          font:{family:'JetBrains Mono',size:11,weight:'700'},
-          formatter:(val,ctx)=>{
-            const total=ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b,0);
-            return `${val} (${Math.round(val/total*100)}%)`;
-          },
-          anchor:'end',align:'end',offset:4,
-        }
-      }
-    }
-  });
-
-  // Monthly trend
-  const monthly = {};
-  ALL_ROWS.forEach(r=>{
-    if (!r.dt||r.dt==='error') return;
-    const mk=fmtMonthKey(r.dt);
-    if (!monthly[mk]) monthly[mk]={booked:0,sal:0,dq:0,noshow:0,key:r.dt.getFullYear()*100+r.dt.getMonth()};
-    monthly[mk].booked++;
-    if(r.effectiveStatus.key==='sal')monthly[mk].sal++;
-    if(r.effectiveStatus.key==='dq')monthly[mk].dq++;
-    if(r.effectiveStatus.key==='noshow')monthly[mk].noshow++;
-  });
-  const months=Object.entries(monthly).sort((a,b)=>b[1].key-a[1].key);
-  const trendRows=months.map(([m,d])=>`<tr>
-    <td class="mono" style="font-size:12px">${esc(m)}</td>
-    <td class="mono">${d.booked}</td>
-    <td class="mono" style="color:#22C55E">${d.sal}</td>
-    <td class="mono" style="color:#EF4444">${d.dq}</td>
-    <td class="mono" style="color:#F59E0B">${d.noshow}</td>
-    <td class="mono" style="font-weight:700">${d.booked?Math.round(d.sal/d.booked*100):0}%</td>
-  </tr>`).join('');
-
-  document.getElementById('trend-table').innerHTML=`<table>
-    <thead><tr><th>Month</th><th>Booked</th><th>SAL</th><th>DQed</th><th>No-show</th><th>SAL Rate</th></tr></thead>
-    <tbody>${trendRows||'<tr><td colspan="6" class="empty-state">No data</td></tr>'}</tbody>
-  </table>`;
+  const cols=[{key:'date',label:'Date'},{key:'agent',label:'BDR'},{key:'totalCalls',label:'Total Calls'},{key:'connects',label:'Connects'},{key:'connectPct',label:'Connect %'},{key:'meaningful',label:'Meaningful'},{key:'meaningfulPct',label:'MC %'},{key:'meetings',label:'Meetings Set'}];
+  const tbl=document.getElementById('dod-table');
+  let html='<thead><tr>';
+  for(const c of cols){const dir=dodSortCol===c.key?(dodSortDir==='asc'?'sort-asc':'sort-desc'):'';html+=`<th class="sortable ${dir}" onclick="setDodSort('${c.key}')">${c.label}</th>`;}
+  html+='</tr></thead><tbody>';
+  if(!data.length){html+=`<tr><td colspan="${cols.length}" style="text-align:center;color:var(--text-muted);padding:24px">No data for selected filters.</td></tr>`;}
+  for(const r of data){
+    const cp=r.totalCalls?(r.connects/r.totalCalls*100).toFixed(1):'0.0';
+    const mp=r.connects?(r.meaningful/r.connects*100).toFixed(1):'0.0';
+    const cpN=parseFloat(cp),mpN=parseFloat(mp);
+    html+=`<tr>
+      <td class="mono-cell">${r.date}</td><td class="rep-name-cell">${r.agent}</td>
+      <td class="mono-cell">${r.totalCalls}</td><td class="mono-cell">${r.connects}</td>
+      <td><span class="pill ${cpN>=50?'pill-green':cpN>=30?'pill-amber':'pill-red'}">${cp}%</span></td>
+      <td class="mono-cell">${r.meaningful}</td>
+      <td><span class="pill ${mpN>=30?'pill-purple':mpN>=15?'pill-amber':'pill-grey'}">${mp}%</span></td>
+      <td class="mono-cell">${r.meetings>0?`<span class="pill pill-green">${r.meetings}</span>`:'—'}</td>
+    </tr>`;
+  }
+  tbl.innerHTML=html+'</tbody>';
 }
 
-// ─── FOOTER ───────────────────────────────────────────────────────────────────
-function buildFooter(dateRange) {
-  const today = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-  document.getElementById('footer').innerHTML=
-    `Data source: <span class="source-pill">${esc(SOURCE_LABEL)}</span> · ${ALL_ROWS.length} rows · ${esc(dateRange)} · Built ${today} · All BDRs included`;
-}
+// ── HELPERS ──
+function setEl(id,val){const e=document.getElementById(id);if(e)e.value=val;}
+function populateSel(id,reps){const e=document.getElementById(id);if(!e)return;e.innerHTML='<option value="">All Reps</option>'+reps.map(r=>`<option value="${r}">${r}</option>`).join('');}
 
-// ─── LOADING ──────────────────────────────────────────────────────────────────
-function setStatus(msg) {
-  document.getElementById('loading-status').textContent = msg;
-}
-
-function showError(msg) {
-  document.getElementById('loading-card').classList.add('hidden');
-  document.getElementById('upload-card').classList.remove('hidden');
-}
-
-function validateCSV(text) {
-  return text && text.length > 20 && !text.trim().startsWith('<!') && !text.trim().toLowerCase().startsWith('<html');
-}
-
-async function tryFetch() {
-  // Direct
+// ── LOAD ──
+async function loadData() {
+  document.getElementById('loading-state').style.display='flex';
+  document.getElementById('main-content').style.display='none';
+  document.getElementById('error-state').style.display='none';
+  document.getElementById('footer-bar').style.display='none';
   try {
-    setStatus('Trying direct connection…');
-    const r = await fetch(SHEET_URL, {signal:AbortSignal.timeout(8000)});
-    const t = await r.text();
-    if (validateCSV(t)) { processCSV(t,'Google Sheet (live)'); return; }
-  } catch(e){}
+    const proxies=[
+      async u=>{const r=await fetch(`https://corsproxy.io/?${encodeURIComponent(u)}`);if(!r.ok)throw new Error('corsproxy '+r.status);return r.text();},
+      async u=>{const r=await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`);if(!r.ok)throw new Error('allorigins '+r.status);return r.text();},
+      async u=>{const r=await fetch(`https://thingproxy.freeboard.io/fetch/${u}`);if(!r.ok)throw new Error('thingproxy '+r.status);return r.text();},
+      async u=>{const r=await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`);if(!r.ok)throw new Error('codetabs '+r.status);return r.text();}
+    ];
+    let text=null,lastErr=null;
+    for(const p of proxies){
+      try{const res=await Promise.race([p(SHEET_URL),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000))]);if(res&&res.length>50){text=res;break;}}catch(e){lastErr=e;}
+    }
+    if(!text) throw new Error('All proxies failed. '+(lastErr?lastErr.message:''));
 
-  // Proxies
-  const proxyLabels=['allorigins','corsproxy.io','codetabs','cors-anywhere'];
-  for (let i=0;i<PROXIES.length;i++) {
-    try {
-      setStatus(`Trying ${proxyLabels[i]} proxy…`);
-      const url = PROXIES[i](SHEET_URL);
-      const r = await fetch(url, {signal:AbortSignal.timeout(10000)});
-      const t = await r.text();
-      if (validateCSV(t)) { processCSV(t,`Google Sheet (via ${proxyLabels[i]})`); return; }
-    } catch(e){}
+    allRows=parseCSV(text);
+    if(!allRows.length) throw new Error('No outbound rows found. Check the sheet is published and has data.');
+
+    const dates=allRows.map(r=>r.date).filter(Boolean).sort();
+    globalMin=dates[0]; globalMax=dates[dates.length-1];
+    allReps=[...new Set(allRows.map(r=>r.agent))].sort();
+
+    const cw=getCWRange(),mtd=getMTDRange();
+
+    document.getElementById('cw-range-label').textContent=`(${cw.from} → ${cw.to})`;
+    document.getElementById('mtd-range-label').textContent=`(${mtd.from} → ${mtd.to})`;
+
+    ['cw','mtd','disp','chart'].forEach(p=>populateSel(`${p}-rep-filter`,allReps));
+    populateSel('rep-filter',allReps);
+
+    setEl('cw-date-from',cw.from); setEl('cw-date-to',cw.to);
+    setEl('mtd-date-from',mtd.from); setEl('mtd-date-to',mtd.to);
+    setEl('disp-date-from',globalMin); setEl('disp-date-to',globalMax);
+    setEl('chart-date-from',globalMin); setEl('chart-date-to',globalMax);
+    setEl('date-from',globalMin); setEl('date-to',globalMax);
+
+    const period=globalMin===globalMax?globalMin:`${globalMin} → ${globalMax}`;
+    document.getElementById('footer-period').textContent=period;
+    document.getElementById('footer-period-2').textContent=period;
+    document.getElementById('footer-total').textContent=allRows.length.toLocaleString();
+    document.getElementById('footer-total-2').textContent=allRows.length.toLocaleString();
+    document.getElementById('footer-reps').textContent=allReps.length;
+    const ts=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('last-updated-text').textContent='Updated '+ts;
+    document.getElementById('footer-refreshed').textContent=ts;
+
+    renderSummarySection('cw');
+    renderSummarySection('mtd');
+    renderMeetingsTable(computeStats(allRows));
+    renderDispositionTable();
+    renderOutcomeChart();
+    renderDodTable();
+
+    document.getElementById('loading-state').style.display='none';
+    document.getElementById('main-content').style.display='block';
+    document.getElementById('footer-bar').style.display='flex';
+  } catch(e) {
+    document.getElementById('loading-state').style.display='none';
+    document.getElementById('error-state').style.display='flex';
+    document.getElementById('error-msg-text').textContent=e.message||'Unknown error.';
+    console.error(e);
   }
-
-  // Fallback
-  setStatus('All connections failed — please upload your CSV.');
-  showError('Could not reach Google Sheet.');
 }
 
-// ─── UPLOAD ───────────────────────────────────────────────────────────────────
-function setupUpload() {
-  const zone = document.getElementById('upload-zone');
-  const inp = document.getElementById('file-input');
-
-  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over')});
-  zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
-  zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');handleFile(e.dataTransfer.files[0])});
-  inp.addEventListener('change',e=>handleFile(e.target.files[0]));
-
-  function handleFile(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => processCSV(e.target.result, `CSV upload (${file.name})`);
-    reader.readAsText(file);
-  }
-}
-
-// ─── INIT ─────────────────────────────────────────────────────────────────────
-setupUpload();
-tryFetch();
+Chart.register(ChartDataLabels);
+loadData();
 </script>
 </body>
 </html>
