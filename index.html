@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💪 Mazdoori Metrics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+:root{
+  --bg:#F5F4F1;--card:#ffffff;--border:#E4E2DC;--text:#111111;--muted:#6b7280;
+  --blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--purple:#7c3aed;--grey:#6b7280;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── Header ── */
+header{background:#111;color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.h-left .title{font-size:20px;font-weight:700;letter-spacing:-0.02em}
+.h-left .subtitle{font-size:11px;color:#777;font-family:'JetBrains Mono',monospace;margin-top:2px}
+.h-right{display:flex;align-items:center;gap:12px}
+#last-updated{font-family:'JetBrains Mono',monospace;font-size:11px;color:#666}
+.refresh-btn{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:6px 14px;border-radius:7px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;transition:all .2s}
+.refresh-btn:hover{background:#2a2a2a;color:#fff}
+
+/* ── Period bar ── */
+.period-bar{background:#fff;border-bottom:1px solid var(--border);padding:9px 24px;display:flex;align-items:center;gap:14px;font-size:12px;flex-wrap:wrap}
+.live-dot{width:7px;height:7px;background:var(--green);border-radius:50%;flex-shrink:0;animation:pulse 2.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.9)}}
+.pb-sep{color:var(--border)}
+.pb-val{font-family:'JetBrains Mono',monospace;color:var(--text);font-weight:500}
+.pb-label{color:var(--muted)}
+
+/* ── Main layout ── */
+main{max-width:1440px;margin:0 auto;padding:28px 24px}
+
+/* ── Sections ── */
+.section{margin-bottom:48px}
+.section-header{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
+.section-title{font-size:17px;font-weight:600;letter-spacing:-0.01em}
+.section-badge{background:var(--border);color:var(--muted);font-size:10px;font-family:'JetBrains Mono',monospace;padding:2px 9px;border-radius:4px;font-weight:500}
+
+/* ── Filter bar ── */
+.filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+.filter-bar label{font-size:11px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.filter-bar select,.filter-bar input[type=date]{border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:13px;background:var(--bg);color:var(--text);outline:none;transition:border .15s}
+.filter-bar select:focus,.filter-bar input[type=date]:focus{border-color:var(--blue)}
+.filter-sep{color:var(--border);font-size:16px;margin:0 2px}
+.clear-btn{border:1px solid var(--border);background:var(--card);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all .15s}
+.clear-btn:hover{background:var(--border);color:var(--text)}
+
+/* ── Tables ── */
+.table-wrap{border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse}
+thead th{background:#fafaf8;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;white-space:nowrap}
+thead th.th-center{text-align:center}
+thead th.sortable{cursor:pointer;user-select:none}
+thead th.sortable:hover{background:#f0efe8;color:var(--text)}
+thead th.sort-asc::after{content:' ↑';color:var(--blue)}
+thead th.sort-desc::after{content:' ↓';color:var(--blue)}
+tbody td{padding:10px 12px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#fafaf8}
+tbody tr.total-row td{font-weight:600;background:#fafaf8;border-top:2px solid var(--border)}
+tbody tr.total-row:hover td{background:#f5f4f0}
+.num{font-family:'JetBrains Mono',monospace}
+
+/* ── Scrollable table (S6) ── */
+.scroll-wrap{max-height:520px;overflow-y:auto;border-radius:10px;border:1px solid var(--border)}
+.scroll-wrap table{width:100%;border-collapse:collapse}
+.scroll-wrap thead th{position:sticky;top:0;z-index:2;background:#fafaf8}
+
+/* ── Progress bar ── */
+.prog-wrap{display:flex;align-items:center;gap:9px}
+.prog-bar{height:5px;border-radius:3px;background:rgba(37,99,235,.12);flex:1;min-width:80px;max-width:180px}
+.prog-fill{height:100%;border-radius:3px;background:var(--blue);transition:width .4s ease}
+
+/* ── Leaderboard ── */
+.leaderboard{background:#111;border-radius:12px;padding:18px;margin-bottom:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.leader-item{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:14px 16px}
+.leader-medal{font-size:22px;margin-bottom:6px}
+.leader-name{color:#fff;font-weight:600;font-size:14px;margin-bottom:2px}
+.leader-stat{font-family:'JetBrains Mono',monospace;font-size:12px;color:#888;margin-bottom:8px}
+.leader-quote{font-size:11.5px;color:#666;font-style:italic;line-height:1.5}
+
+/* ── Cards ── */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.bdr-card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:box-shadow .2s}
+.bdr-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.card-header{padding:13px 16px 11px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.card-name{font-weight:600;font-size:14px}
+.card-rank{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);background:var(--bg);padding:2px 7px;border-radius:4px}
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border)}
+.metric-box{background:var(--card);padding:10px 12px}
+.metric-box.green-bg{background:rgba(22,163,74,.07)}
+.metric-box.amber-bg{background:rgba(217,119,6,.07)}
+.metric-box.red-bg{background:rgba(220,38,38,.07)}
+.metric-label{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:4px}
+.metric-value{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700;color:var(--text)}
+.metric-box.green-bg .metric-value{color:var(--green)}
+.metric-box.amber-bg .metric-value{color:var(--amber)}
+.metric-box.red-bg .metric-value{color:var(--red)}
+.metric-sub{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:1px}
+.meetings-banner{background:linear-gradient(135deg,rgba(22,163,74,.1),rgba(22,163,74,.03));border-top:1px solid rgba(22,163,74,.18);padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.meetings-banner .m-label{font-size:11px;color:var(--green);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.meetings-banner .m-value{font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:700;color:var(--green)}
+
+/* ── Pills ── */
+.pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px}
+.pill.green{background:rgba(22,163,74,.12);color:var(--green)}
+.pill.amber{background:rgba(217,119,6,.12);color:var(--amber)}
+.pill.red{background:rgba(220,38,38,.12);color:var(--red)}
+.pill.grey{background:rgba(107,114,128,.12);color:var(--grey)}
+
+/* ── Disposition badges ── */
+.dbadge{font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;display:inline-block;margin-left:3px;vertical-align:middle}
+.dbadge.nc{background:rgba(220,38,38,.1);color:var(--red)}
+.dbadge.mc{background:rgba(124,58,237,.1);color:var(--purple)}
+
+/* ── Chart container ── */
+.chart-container{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+.chart-inner{position:relative;height:380px}
+
+/* ── Loading & Error ── */
+.loading-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:340px;gap:16px}
+.spinner{width:34px;height:34px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .75s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:var(--muted);font-size:14px}
+.error-box{background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.18);border-radius:10px;padding:22px 24px}
+.error-box .err-title{color:var(--red);font-weight:600;font-size:15px;margin-bottom:6px}
+.error-box .err-msg{font-size:13px;color:#555;line-height:1.6}
+.empty-state{padding:32px;text-align:center;color:var(--muted);font-size:14px}
+
+/* ── Footer ── */
+footer{background:var(--card);border-top:1px solid var(--border);padding:11px 24px;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;display:flex;gap:20px;flex-wrap:wrap}
+
+@media(max-width:760px){
+  .leaderboard{grid-template-columns:1fr}
+  .cards-grid{grid-template-columns:1fr}
+  main{padding:16px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-left">
+    <div class="title">💪 Mazdoori Metrics</div>
+    <div class="subtitle">Live data · JustCall via Google Sheets</div>
+  </div>
+  <div class="h-right">
+    <span id="last-updated">—</span>
+    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+  </div>
+</header>
+
+<div class="period-bar">
+  <div class="live-dot"></div>
+  <span class="pb-label">Period</span><span class="pb-val" id="pb-period">—</span>
+  <span class="pb-sep">·</span>
+  <span class="pb-label">Direction</span><span class="pb-val">Outbound</span>
+  <span class="pb-sep">·</span>
+  <span class="pb-val" id="pb-calls">— calls</span>
+  <span class="pb-sep">·</span>
+  <span class="pb-val" id="pb-reps">— reps</span>
+  <span class="pb-sep">·</span>
+  <span class="pb-label">Source</span><span class="pb-val">JustCall via Google Sheets</span>
+</div>
+
+<main>
+  <div id="loading-state" class="loading-state">
+    <div class="spinner"></div>
+    <div class="loading-text">Fetching data from Google Sheets…</div>
+  </div>
+  <div id="error-state" style="display:none"></div>
+  <div id="dashboard" style="display:none">
+
+    <!-- Section 1: Meetings Till Date -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">🎯 Meetings Set</span>
+        <span class="section-badge">TILL DATE</span>
+      </div>
+      <div id="s1-content"></div>
+    </div>
+
+    <!-- Section 2: Current Week -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">📅 Current Week</span>
+        <span class="section-badge">MON – FRI</span>
+      </div>
+      <div class="filter-bar">
+        <label>Rep</label>
+        <select id="s2-rep" onchange="updateSection('s2')">
+          <option value="">All Reps</option>
+        </select>
+        <span class="filter-sep">|</span>
+        <label>From</label>
+        <input type="date" id="s2-start" onchange="updateSection('s2')">
+        <label>To</label>
+        <input type="date" id="s2-end" onchange="updateSection('s2')">
+        <button class="clear-btn" onclick="clearSection('s2','week')">Clear</button>
+      </div>
+      <div id="s2-content"></div>
+    </div>
+
+    <!-- Section 3: Month to Date -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">📊 Month to Date</span>
+        <span class="section-badge">MTD</span>
+      </div>
+      <div class="filter-bar">
+        <label>Rep</label>
+        <select id="s3-rep" onchange="updateSection('s3')">
+          <option value="">All Reps</option>
+        </select>
+        <span class="filter-sep">|</span>
+        <label>From</label>
+        <input type="date" id="s3-start" onchange="updateSection('s3')">
+        <label>To</label>
+        <input type="date" id="s3-end" onchange="updateSection('s3')">
+        <button class="clear-btn" onclick="clearSection('s3','month')">Clear</button>
+      </div>
+      <div id="s3-content"></div>
+    </div>
+
+    <!-- Section 4: Disposition Breakdown -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">🗂️ Disposition Breakdown</span>
+        <span class="section-badge">BY REP</span>
+      </div>
+      <div class="filter-bar">
+        <label>Rep</label>
+        <select id="s4-rep" onchange="updateSection('s4')">
+          <option value="">All Reps</option>
+        </select>
+        <span class="filter-sep">|</span>
+        <label>From</label>
+        <input type="date" id="s4-start" onchange="updateSection('s4')">
+        <label>To</label>
+        <input type="date" id="s4-end" onchange="updateSection('s4')">
+        <button class="clear-btn" onclick="clearSection('s4','full')">Clear</button>
+      </div>
+      <div id="s4-content"></div>
+    </div>
+
+    <!-- Section 5: Call Outcome Breakdown -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">📈 Call Outcome Breakdown</span>
+        <span class="section-badge">STACKED</span>
+      </div>
+      <div class="filter-bar">
+        <label>Rep</label>
+        <select id="s5-rep" onchange="updateSection('s5')">
+          <option value="">All Reps</option>
+        </select>
+        <span class="filter-sep">|</span>
+        <label>From</label>
+        <input type="date" id="s5-start" onchange="updateSection('s5')">
+        <label>To</label>
+        <input type="date" id="s5-end" onchange="updateSection('s5')">
+        <button class="clear-btn" onclick="clearSection('s5','full')">Clear</button>
+      </div>
+      <div class="chart-container">
+        <div class="chart-inner"><canvas id="s5-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Section 6: Day-on-Day Breakdown -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">📆 Day-on-Day Breakdown</span>
+        <span class="section-badge">SORTABLE</span>
+      </div>
+      <div class="filter-bar">
+        <label>Rep</label>
+        <select id="s6-rep" onchange="updateSection('s6')">
+          <option value="">All Reps</option>
+        </select>
+        <span class="filter-sep">|</span>
+        <label>From</label>
+        <input type="date" id="s6-start" onchange="updateSection('s6')">
+        <label>To</label>
+        <input type="date" id="s6-end" onchange="updateSection('s6')">
+        <button class="clear-btn" onclick="clearSection('s6','full')">Clear</button>
+      </div>
+      <div id="s6-content"></div>
+    </div>
+
+  </div><!-- /dashboard -->
+</main>
+
+<footer>
+  <span>Source: JustCall via Google Sheets</span>
+  <span id="ft-period">Period: —</span>
+  <span>Direction: Outbound</span>
+  <span>MC threshold: ≥ 90s</span>
+  <span id="ft-calls">Total calls: —</span>
+  <span id="ft-refreshed">Last refreshed: —</span>
+</footer>
+
+<script>
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/YOUR_SHEET_ID/pub?gid=0&single=true&output=csv';
+
+const PROXIES = [
+  u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  u => `https://thingproxy.freeboard.io/fetch/${u}`,
+  u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
+];
+
+// ─── METRIC RULES ──────────────────────────────────────────────────────────
+const NON_CONNECT = new Set([
+  'no answer','left vm','left voicemail','no longer with company',
+  'gatekeeper','bad numbers','abm: bad numbers'
+]);
+const MEANINGFUL = new Set([
+  'send email','referral','not interested','ni - using carta',
+  'meeting set','lto',"dnd - don't call back",'call back later','abm: meeting set'
+]);
+const MEETING_CODE = 'abm: meeting set';
+const BAD_NUM_CODES = new Set(['abm: bad numbers','bad numbers']);
+
+// ─── QUOTE POOLS ───────────────────────────────────────────────────────────
+const QUOTES = {
+  calls:[
+    "Dial like there's no tomorrow.",
+    "Volume is vanity until it becomes victory.",
+    "Every ring is a chance. Most quit before the answer.",
+    "The phone doesn't pick itself up.",
+    "Consistency beats talent when talent doesn't dial."
+  ],
+  connects:[
+    "A connect is the universe saying 'go'.",
+    "Connects don't lie. Neither do you.",
+    "Every human on the line is a door ajar.",
+    "You connected. That's already more than most.",
+    "The conversation is the product."
+  ],
+  connectPct:[
+    "Quality of effort shows in every percentage point.",
+    "High connect % means you're saying the right things.",
+    "Numbers don't flatter. Neither do you.",
+    "That connect rate? That's not luck.",
+    "Efficiency is a form of respect."
+  ],
+  meaningful:[
+    "Meaningful beats mechanical. Every time.",
+    "Depth of conversation predicts depth of pipeline.",
+    "You didn't just call. You reached someone.",
+    "Real conversations compound.",
+    "Meaningful is a skill, not a disposition code."
+  ],
+  meetings:[
+    "A meeting set is a bet placed on yourself.",
+    "You booked the future. Show up for it.",
+    "Meetings don't happen. They're made.",
+    "The calendar doesn't lie.",
+    "Every booking is a belief system in action."
+  ]
+};
+
+function getUniqueQuotes(n) {
+  const pool = Object.values(QUOTES).flat();
+  const shuffled = [...pool].sort(() => Math.random() - .5);
+  return shuffled.slice(0, n);
+}
+
+// ─── GLOBAL STATE ──────────────────────────────────────────────────────────
+let rawData = [];
+let allReps = [];
+let dataMinDate = '';
+let dataMaxDate = '';
+let s5Chart = null;
+let s6SortCol = 'date';
+let s6SortDir = 'asc';
+
+// ─── UTILS ─────────────────────────────────────────────────────────────────
+function toTitleCase(s) {
+  if (!s) return '';
+  return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function parseDate(s) {
+  if (!s) return '';
+  s = s.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return `${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+  if (m) return `20${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+  m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  return s;
+}
+
+function fmtDateInput(d) { return d.toISOString().split('T')[0]; }
+
+function getWeekRange() {
+  const t = new Date(), day = t.getDay(), diff = day === 0 ? 6 : day - 1;
+  const mon = new Date(t); mon.setDate(t.getDate() - diff);
+  const fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+  return { start: fmtDateInput(mon), end: fmtDateInput(fri) };
+}
+
+function getMonthRange() {
+  const t = new Date();
+  return { start: fmtDateInput(new Date(t.getFullYear(), t.getMonth(), 1)), end: fmtDateInput(t) };
+}
+
+function fmtPct(v) { return isNaN(v) ? '0.0%' : v.toFixed(1) + '%'; }
+
+function computeMetrics(calls) {
+  const total = calls.length;
+  const nc = calls.filter(r => NON_CONNECT.has(r.disp));
+  const connects = total - nc.length;
+  const meaningful = calls.filter(r => MEANINGFUL.has(r.disp) && r.duration >= 90).length;
+  const meetings = calls.filter(r => r.disp === MEETING_CODE).length;
+  const badNums = calls.filter(r => BAD_NUM_CODES.has(r.disp)).length;
+  return {
+    total, connects,
+    connectPct: total ? connects / total * 100 : 0,
+    meaningful,
+    mcPct: connects ? meaningful / connects * 100 : 0,
+    meetings, badNums,
+    badNumPct: total ? badNums / total * 100 : 0
+  };
+}
+
+function metricClass(type, val) {
+  if (type === 'connect') return val >= 50 ? 'green-bg' : val >= 30 ? 'amber-bg' : 'red-bg';
+  if (type === 'mc') return val >= 30 ? 'green-bg' : val >= 15 ? 'amber-bg' : 'red-bg';
+  return '';
+}
+
+function pillClass(type, val) {
+  if (type === 'connect') return val >= 50 ? 'green' : val >= 30 ? 'amber' : 'red';
+  if (type === 'mc') return val >= 30 ? 'green' : val >= 15 ? 'amber' : 'red';
+  return 'grey';
+}
+
+function filterData(start, end, rep) {
+  return rawData.filter(r => {
+    if (rep && r.agent !== rep) return false;
+    if (start && r.date < start) return false;
+    if (end && r.date > end) return false;
+    return true;
+  });
+}
+
+function getFilterVals(prefix) {
+  return {
+    rep: document.getElementById(`${prefix}-rep`)?.value || '',
+    start: document.getElementById(`${prefix}-start`)?.value || '',
+    end: document.getElementById(`${prefix}-end`)?.value || ''
+  };
+}
+
+// ─── CSV FETCH ─────────────────────────────────────────────────────────────
+async function fetchWithTimeout(url, ms) {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(tid);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.text();
+  } catch(e) { clearTimeout(tid); throw e; }
+}
+
+async function fetchCSV() {
+  for (const fn of PROXIES) {
+    try { return await fetchWithTimeout(fn(SHEET_URL), 8000); }
+    catch(e) { console.warn('Proxy failed:', e.message); }
+  }
+  throw new Error('All 4 proxies failed. Ensure the sheet is published and the URL is correct.');
+}
+
+function parseCSVLine(line) {
+  const out = []; let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+    else if (c === ',' && !inQ) { out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) throw new Error('Sheet appears empty or malformed.');
+  const hdrs = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+  const idx = {
+    agent: hdrs.findIndex(h => h.includes('agent') || (h.includes('name') && !h.includes('disp'))),
+    dir:   hdrs.findIndex(h => h.includes('direction')),
+    date:  hdrs.findIndex(h => h === 'date'),
+    time:  hdrs.findIndex(h => h === 'time'),
+    disp:  hdrs.findIndex(h => h.includes('disposition')),
+    dur:   hdrs.findIndex(h => h.includes('duration'))
+  };
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    const dir = (cols[idx.dir] || '').trim().toLowerCase();
+    if (dir !== 'outbound') continue;
+    const dispRaw = (cols[idx.disp] || '').trim();
+    rows.push({
+      agent: toTitleCase((cols[idx.agent] || '').trim()),
+      date: parseDate((cols[idx.date] || '').trim()),
+      time: (cols[idx.time] || '').trim(),
+      dispRaw,
+      disp: dispRaw.toLowerCase(),
+      duration: parseInt(cols[idx.dur] || '0', 10) || 0
+    });
+  }
+  return rows;
+}
+
+// ─── SECTION 1: MEETINGS TILL DATE ─────────────────────────────────────────
+function renderS1() {
+  const repMap = {};
+  rawData.forEach(r => {
+    if (!repMap[r.agent]) repMap[r.agent] = { meetings: 0, calls: 0 };
+    repMap[r.agent].calls++;
+    if (r.disp === MEETING_CODE) repMap[r.agent].meetings++;
+  });
+
+  const rows = Object.entries(repMap)
+    .map(([rep, d]) => ({ rep, ...d }))
+    .sort((a, b) => b.meetings - a.meetings || b.calls - a.calls);
+
+  const totMtg = rows.reduce((s, r) => s + r.meetings, 0);
+  const totCalls = rows.reduce((s, r) => s + r.calls, 0);
+  const maxMtg = Math.max(...rows.map(r => r.meetings), 1);
+
+  let html = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>Rank</th><th>BDR</th><th>Meetings Set</th>
+      <th class="th-center">Share of Total</th>
+      <th class="th-center">Calls / Meeting</th>
+    </tr></thead><tbody>`;
+
+  rows.forEach((r, i) => {
+    const bar = maxMtg > 0 ? r.meetings / maxMtg * 100 : 0;
+    const share = totMtg > 0 ? (r.meetings / totMtg * 100).toFixed(1) : '0.0';
+    const cpm = r.meetings > 0 ? (r.calls / r.meetings).toFixed(1) : '—';
+    html += `<tr>
+      <td><span class="num" style="font-weight:600">#${i+1}</span></td>
+      <td style="font-weight:500">${r.rep}</td>
+      <td>
+        <div class="prog-wrap">
+          <span class="num" style="font-size:16px;font-weight:700;min-width:30px">${r.meetings}</span>
+          <div class="prog-bar"><div class="prog-fill" style="width:${bar}%"></div></div>
+        </div>
+      </td>
+      <td class="th-center"><span class="num">${share}%</span></td>
+      <td class="th-center"><span class="num">${cpm}</span></td>
+    </tr>`;
+  });
+
+  const totCpm = totMtg > 0 ? (totCalls / totMtg).toFixed(1) : '—';
+  html += `<tr class="total-row">
+    <td></td><td>Total</td>
+    <td><span class="num" style="font-size:16px">${totMtg}</span></td>
+    <td class="th-center"><span class="num">100.0%</span></td>
+    <td class="th-center"><span class="num">${totCpm}</span></td>
+  </tr></tbody></table></div>`;
+
+  document.getElementById('s1-content').innerHTML = html;
+}
+
+// ─── SECTION 2 / 3: CARDS + LEADERBOARD ────────────────────────────────────
+function renderCardsSection(prefix) {
+  const { rep, start, end } = getFilterVals(prefix);
+  const data = filterData(start, end, rep);
+
+  if (!data.length) {
+    document.getElementById(`${prefix}-content`).innerHTML =
+      '<div class="empty-state">No data for the selected filters.</div>';
+    return;
+  }
+
+  const repMap = {};
+  data.forEach(r => {
+    if (!repMap[r.agent]) repMap[r.agent] = [];
+    repMap[r.agent].push(r);
+  });
+
+  const sorted = Object.entries(repMap)
+    .map(([name, calls]) => ({ name, ...computeMetrics(calls) }))
+    .sort((a, b) => b.total - a.total);
+
+  const medals = ['🥇','🥈','🥉'];
+  const quotes = getUniqueQuotes(3);
+  const top3 = sorted.slice(0, 3);
+
+  let html = `<div class="leaderboard">`;
+  top3.forEach((r, i) => {
+    html += `<div class="leader-item">
+      <div class="leader-medal">${medals[i]}</div>
+      <div class="leader-name">${r.name}</div>
+      <div class="leader-stat">${r.total} calls · ${r.connects} connects · ${fmtPct(r.connectPct)} CR</div>
+      <div class="leader-quote">"${quotes[i] || ''}"</div>
+    </div>`;
+  });
+  html += `</div><div class="cards-grid">`;
+
+  sorted.forEach((r, i) => {
+    html += `<div class="bdr-card">
+      <div class="card-header">
+        <span class="card-name">${r.name}</span>
+        <span class="card-rank">#${i+1}</span>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-box">
+          <div class="metric-label">Total Calls</div>
+          <div class="metric-value">${r.total}</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Connects</div>
+          <div class="metric-value">${r.connects}</div>
+        </div>
+        <div class="metric-box ${metricClass('connect', r.connectPct)}">
+          <div class="metric-label">Connect %</div>
+          <div class="metric-value">${fmtPct(r.connectPct)}</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Meaningful</div>
+          <div class="metric-value">${r.meaningful}</div>
+        </div>
+        <div class="metric-box ${metricClass('mc', r.mcPct)}">
+          <div class="metric-label">MC %</div>
+          <div class="metric-value">${fmtPct(r.mcPct)}</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Bad Numbers</div>
+          <div class="metric-value" style="font-size:15px">${r.badNums}</div>
+          <div class="metric-sub">${fmtPct(r.badNumPct)}</div>
+        </div>
+      </div>
+      <div class="meetings-banner">
+        <span class="m-label">🎯 Meetings Set</span>
+        <span class="m-value">${r.meetings}</span>
+      </div>
+    </div>`;
+  });
+
+  html += `</div>`;
+  document.getElementById(`${prefix}-content`).innerHTML = html;
+}
+
+// ─── SECTION 4: DISPOSITION BREAKDOWN ──────────────────────────────────────
+function renderS4() {
+  const { rep, start, end } = getFilterVals('s4');
+  const data = filterData(start, end, rep);
+
+  if (!data.length) {
+    document.getElementById('s4-content').innerHTML =
+      '<div class="empty-state">No data for the selected filters.</div>';
+    return;
+  }
+
+  const dispSet = new Set();
+  data.forEach(r => { if (r.dispRaw) dispSet.add(r.dispRaw); });
+  const disps = Array.from(dispSet).sort();
+
+  const repSet = new Set();
+  data.forEach(r => repSet.add(r.agent));
+  const reps = Array.from(repSet).sort();
+
+  const counts = {};
+  data.forEach(r => {
+    if (!counts[r.agent]) counts[r.agent] = {};
+    counts[r.agent][r.dispRaw] = (counts[r.agent][r.dispRaw] || 0) + 1;
+  });
+
+  const colTotals = {};
+  disps.forEach(d => colTotals[d] = data.filter(r => r.dispRaw === d).length);
+  const rowTotals = {};
+  reps.forEach(rep => rowTotals[rep] = disps.reduce((s, d) => s + (counts[rep]?.[d] || 0), 0));
+
+  const isNC = d => NON_CONNECT.has(d.toLowerCase());
+  const isMC = d => MEANINGFUL.has(d.toLowerCase());
+
+  let html = `<div class="table-wrap" style="overflow-x:auto"><table>
+    <thead><tr>
+      <th style="min-width:130px">BDR</th>`;
+
+  disps.forEach(d => {
+    const badge = isNC(d) ? `<span class="dbadge nc">NC</span>` : isMC(d) ? `<span class="dbadge mc">MC</span>` : '';
+    html += `<th style="max-width:90px;min-width:55px;text-align:center;white-space:normal;word-break:break-word;font-size:9px">${d}${badge}</th>`;
+  });
+  html += `<th style="text-align:center;min-width:60px">Total</th></tr></thead><tbody>`;
+
+  reps.forEach(rep => {
+    html += `<tr><td style="font-weight:500">${rep}</td>`;
+    disps.forEach(d => {
+      const v = counts[rep]?.[d] || 0;
+      html += `<td style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:13px">${v || '<span style="color:#ddd">—</span>'}</td>`;
+    });
+    html += `<td style="text-align:center" class="num"><strong>${rowTotals[rep]}</strong></td></tr>`;
+  });
+
+  html += `<tr class="total-row"><td>Total</td>`;
+  disps.forEach(d => {
+    html += `<td style="text-align:center" class="num">${colTotals[d]}</td>`;
+  });
+  html += `<td style="text-align:center" class="num">${data.length}</td>`;
+  html += `</tr></tbody></table></div>`;
+
+  document.getElementById('s4-content').innerHTML = html;
+}
+
+// ─── SECTION 5: STACKED BAR CHART ──────────────────────────────────────────
+function renderS5() {
+  const { rep, start, end } = getFilterVals('s5');
+  const data = filterData(start, end, rep);
+
+  if (s5Chart) { s5Chart.destroy(); s5Chart = null; }
+
+  if (!data.length) return;
+
+  const repMap = {};
+  data.forEach(r => {
+    if (!repMap[r.agent]) repMap[r.agent] = [];
+    repMap[r.agent].push(r);
+  });
+
+  const reps = Object.keys(repMap).sort();
+  const meaningful = [], otherConn = [], nonConn = [];
+
+  reps.forEach(r => {
+    const m = computeMetrics(repMap[r]);
+    meaningful.push(m.meaningful);
+    otherConn.push(m.connects - m.meaningful);
+    nonConn.push(m.total - m.connects);
+  });
+
+  const ctx = document.getElementById('s5-chart').getContext('2d');
+  s5Chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: reps,
+      datasets: [
+        { label:'Meaningful Convos', data:meaningful, backgroundColor:'rgba(124,58,237,0.75)', stack:'s' },
+        { label:'Other Connects',    data:otherConn,  backgroundColor:'rgba(22,163,74,0.7)',   stack:'s' },
+        { label:'Non-Connects',      data:nonConn,    backgroundColor:'rgba(107,114,128,0.45)',stack:'s' }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend:{ position:'top', labels:{ font:{ family:'DM Sans', size:12 }, padding:16 }},
+        datalabels:{
+          color:'#fff',
+          font:{ family:'JetBrains Mono', weight:'bold', size:11 },
+          formatter:(v) => v >= 3 ? v : null,
+          anchor:'center', align:'center'
+        }
+      },
+      scales:{
+        x:{ stacked:true, ticks:{ font:{ family:'DM Sans', size:12 }}},
+        y:{ stacked:true, ticks:{ font:{ family:'JetBrains Mono', size:11 }}, beginAtZero:true }
+      }
+    },
+    plugins:[ChartDataLabels]
+  });
+}
+
+// ─── SECTION 6: DAY-ON-DAY ─────────────────────────────────────────────────
+let s6Rows = [];
+
+function renderS6() {
+  const { rep, start, end } = getFilterVals('s6');
+  const data = filterData(start, end, rep);
+
+  if (!data.length) {
+    document.getElementById('s6-content').innerHTML =
+      '<div class="empty-state">No data for the selected filters.</div>';
+    s6Rows = [];
+    return;
+  }
+
+  const groups = {};
+  data.forEach(r => {
+    const k = `${r.date}__${r.agent}`;
+    if (!groups[k]) groups[k] = { date: r.date, rep: r.agent, calls: [] };
+    groups[k].calls.push(r);
+  });
+
+  s6Rows = Object.values(groups).map(g => {
+    const m = computeMetrics(g.calls);
+    return { date: g.date, rep: g.rep, ...m };
+  });
+
+  sortAndRenderS6();
+}
+
+function sortAndRenderS6() {
+  const col = s6SortCol, dir = s6SortDir;
+  s6Rows.sort((a, b) => {
+    let va = a[col], vb = b[col];
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb||'').toLowerCase(); }
+    if (va < vb) return dir === 'asc' ? -1 : 1;
+    if (va > vb) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const cols = ['date','rep','total','connects','connectPct','meaningful','mcPct','meetings'];
+  const labels = { date:'Date', rep:'BDR', total:'Total Calls', connects:'Connects',
+    connectPct:'Connect %', meaningful:'Meaningful', mcPct:'MC %', meetings:'Meetings Set' };
+
+  let html = `<div class="scroll-wrap"><table>
+    <thead><tr>`;
+
+  cols.forEach(c => {
+    const isActive = c === s6SortCol;
+    const arrow = isActive ? (s6SortDir === 'asc' ? ' sort-asc' : ' sort-desc') : '';
+    html += `<th class="sortable${arrow}" onclick="s6Sort('${c}')">${labels[c]}</th>`;
+  });
+
+  html += `</tr></thead><tbody id="s6-tbody">`;
+  html += buildS6Rows(s6Rows);
+  html += `</tbody></table></div>`;
+
+  document.getElementById('s6-content').innerHTML = html;
+}
+
+function buildS6Rows(rows) {
+  return rows.map(r => {
+    const cPill = `<span class="pill ${pillClass('connect', r.connectPct)}">${fmtPct(r.connectPct)}</span>`;
+    const mcPill = `<span class="pill ${pillClass('mc', r.mcPct)}">${fmtPct(r.mcPct)}</span>`;
+    const mtgCell = r.meetings > 0
+      ? `<span class="pill green">${r.meetings}</span>`
+      : `<span style="color:var(--border)">—</span>`;
+
+    return `<tr>
+      <td class="num">${r.date}</td>
+      <td style="font-weight:500">${r.rep}</td>
+      <td class="num">${r.total}</td>
+      <td class="num">${r.connects}</td>
+      <td>${cPill}</td>
+      <td class="num">${r.meaningful}</td>
+      <td>${mcPill}</td>
+      <td>${mtgCell}</td>
+    </tr>`;
+  }).join('');
+}
+
+window.s6Sort = function(col) {
+  if (s6SortCol === col) s6SortDir = s6SortDir === 'asc' ? 'desc' : 'asc';
+  else { s6SortCol = col; s6SortDir = 'asc'; }
+  sortAndRenderS6();
+};
+
+// ─── FILTER HANDLERS ───────────────────────────────────────────────────────
+window.updateSection = function(prefix) {
+  if (prefix === 's2' || prefix === 's3') renderCardsSection(prefix);
+  else if (prefix === 's4') renderS4();
+  else if (prefix === 's5') renderS5();
+  else if (prefix === 's6') { s6SortCol = 'date'; s6SortDir = 'asc'; renderS6(); }
+};
+
+window.clearSection = function(prefix, mode) {
+  const r = document.getElementById(`${prefix}-rep`);
+  if (r) r.value = '';
+  let range = { start: dataMinDate, end: dataMaxDate };
+  if (mode === 'week') range = getWeekRange();
+  if (mode === 'month') range = getMonthRange();
+  const s = document.getElementById(`${prefix}-start`);
+  const e = document.getElementById(`${prefix}-end`);
+  if (s) s.value = range.start;
+  if (e) e.value = range.end;
+  updateSection(prefix);
+};
+
+// ─── POPULATE DROPDOWNS ────────────────────────────────────────────────────
+function populateDropdowns() {
+  ['s2','s3','s4','s5','s6'].forEach(prefix => {
+    const sel = document.getElementById(`${prefix}-rep`);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All Reps</option>';
+    allReps.forEach(rep => {
+      const opt = document.createElement('option');
+      opt.value = rep; opt.textContent = rep;
+      if (rep === cur) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+// ─── SET DEFAULT DATE RANGES ────────────────────────────────────────────────
+function setDefaultRanges() {
+  const week = getWeekRange();
+  const month = getMonthRange();
+  const full = { start: dataMinDate, end: dataMaxDate };
+
+  [['s2', week], ['s3', month], ['s4', full], ['s5', full], ['s6', full]].forEach(([p, r]) => {
+    const s = document.getElementById(`${p}-start`);
+    const e = document.getElementById(`${p}-end`);
+    if (s) s.value = r.start;
+    if (e) e.value = r.end;
+  });
+}
+
+// ─── UPDATE HEADER / FOOTER ────────────────────────────────────────────────
+function updateMeta() {
+  const now = new Date().toLocaleString('en-IN', { hour12:true, timeZone:'Asia/Kolkata',
+    day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+  const nowFull = new Date().toLocaleTimeString('en-IN', { hour12:true, timeZone:'Asia/Kolkata',
+    hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+  document.getElementById('last-updated').textContent = now;
+  document.getElementById('pb-period').textContent = `${dataMinDate} → ${dataMaxDate}`;
+  document.getElementById('pb-calls').textContent = `${rawData.length.toLocaleString()} calls`;
+  document.getElementById('pb-reps').textContent = `${allReps.length} reps`;
+  document.getElementById('ft-period').textContent = `Period: ${dataMinDate} → ${dataMaxDate}`;
+  document.getElementById('ft-calls').textContent = `Total calls: ${rawData.length.toLocaleString()}`;
+  document.getElementById('ft-refreshed').textContent = `Last refreshed: ${nowFull} IST`;
+}
+
+// ─── MAIN LOAD ─────────────────────────────────────────────────────────────
+async function loadData() {
+  document.getElementById('loading-state').style.display = 'flex';
+  document.getElementById('error-state').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'none';
+  if (s5Chart) { s5Chart.destroy(); s5Chart = null; }
+
+  try {
+    const csv = await fetchCSV();
+    rawData = parseCSV(csv);
+
+    if (!rawData.length) throw new Error('No outbound calls found in the sheet. Check the Direction column.');
+
+    // Compute rep list and date range
+    const repSet = new Set(rawData.map(r => r.agent).filter(Boolean));
+    allReps = Array.from(repSet).sort();
+    const dates = rawData.map(r => r.date).filter(Boolean).sort();
+    dataMinDate = dates[0] || '';
+    dataMaxDate = dates[dates.length - 1] || '';
+
+    populateDropdowns();
+    setDefaultRanges();
+    updateMeta();
+
+    // Render all sections
+    renderS1();
+    renderCardsSection('s2');
+    renderCardsSection('s3');
+    renderS4();
+    renderS5();
+    renderS6();
+
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+
+  } catch(e) {
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('error-state').style.display = 'block';
+    document.getElementById('error-state').innerHTML = `
+      <div class="error-box">
+        <div class="err-title">⚠️ Failed to load data</div>
+        <div class="err-msg">
+          ${e.message}<br><br>
+          <strong>Steps to fix:</strong><br>
+          1. Replace <code>YOUR_SHEET_ID</code> in the <code>SHEET_URL</code> constant with your published sheet ID.<br>
+          2. Go to your Google Sheet → File → Share → Publish to web → select the correct sheet → CSV → Publish.<br>
+          3. Make sure the sheet has columns: Agent Name, Direction, Date, Time, Disposition Codes, Duration (seconds).<br>
+          4. Check browser console for proxy-specific errors.
+        </div>
+      </div>`;
+  }
+}
+
+// Kick off on load
+loadData();
+</script>
+</body>
+</html>
